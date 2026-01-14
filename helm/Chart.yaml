@@ -1,0 +1,18 @@
+apiVersion: v2
+name: oracle-database-operator
+description: A Helm chart for Oracle Database Operator for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "2.0.0"
+kubeVersion: ">=1.21.0-0"
+home: https://github.com/oracle/oracle-database-operator
+sources:
+  - https://github.com/oracle/oracle-database-operator
+maintainers:
+  - name: Oracle
+    url: https://www.oracle.com
+keywords:
+  - oracle
+  - database
+  - operator
+  - kubernetes

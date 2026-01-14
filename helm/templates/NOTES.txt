@@ -1,0 +1,19 @@
+Oracle Database Operator has been installed.
+
+Namespace: {{ include "oracle-database-operator.namespace" . }}
+
+To verify the installation:
+
+  kubectl get pods -n {{ include "oracle-database-operator.namespace" . }}
+
+To check the operator logs:
+
+  kubectl logs -n {{ include "oracle-database-operator.namespace" . }} -l control-plane=controller-manager -f
+
+Note: This chart requires cert-manager for webhook certificates.
+If installation failed with a cert-manager error, install cert-manager first:
+
+  kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml
+
+For more information, visit:
+  https://github.com/oracle/oracle-database-operator

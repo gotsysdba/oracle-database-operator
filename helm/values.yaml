@@ -1,0 +1,74 @@
+# Default values for oracle-database-operator
+#
+# NOTE: This chart installs resources into the 'oracle-database-operator-system' namespace.
+# This is hardcoded because the CRDs contain webhook configurations that reference this namespace.
+#
+# PREREQUISITE: cert-manager must be installed before this chart.
+# Install cert-manager: https://cert-manager.io/docs/installation/
+
+# Deployment scope configuration
+scope:
+  # "cluster" = watch all namespaces (default), creates ClusterRoleBinding
+  # "namespace" = watch specific namespaces only, creates RoleBindings in those namespaces
+  mode: cluster
+
+  # For namespace-scoped mode: list of namespaces to watch
+  # RoleBindings will be created in each of these namespaces
+  watchNamespaces: []
+  # Example: ["default", "my-app-namespace"]
+
+# RBAC configuration
+rbac:
+  # Grant operator permission to list/watch nodes
+  # Required if database CRs will use NodePort service type
+  nodeAccess: false
+
+# Controller Manager configuration
+controllerManager:
+  replicas: 3
+
+  image:
+    repository: container-registry.oracle.com/database/operator
+    tag: latest
+    pullPolicy: Always
+
+  # Resource limits and requests
+  resources:
+    limits:
+      cpu: 400m
+      memory: 400Mi
+    requests:
+      cpu: 400m
+      memory: 400Mi
+
+  # Enable leader election for controller manager
+  leaderElection: true
+
+# Service Account configuration
+serviceAccount:
+  # The name of the service account to use
+  # If empty, uses the existing "default" service account
+  # If specifying a custom name, ensure the service account exists before installing
+  name: ""
+
+# Webhook configuration
+webhook:
+  # Failure policy for webhooks (Fail or Ignore)
+  failurePolicy: Fail
+
+# OCI Credentials for Autonomous Database
+# Required for ADB provisioning/binding. See: set_ocicredentials.sh
+ociCredentials:
+  # Option 1: Reference an existing ConfigMap
+  configMapName: ""
+
+  # Option 2: Provide values to create a ConfigMap (used if configMapName is empty)
+  tenancy: ""
+  user: ""
+  fingerprint: ""
+  region: ""
+  passphrase: ""  # optional, for encrypted private keys
+
+  # Reference an existing Secret containing the OCI API private key
+  # User must create this separately (e.g., using set_ocicredentials.sh or kubectl)
+  secretName: ""

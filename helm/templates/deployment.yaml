@@ -1,0 +1,63 @@
+{{- include "oracle-database-operator.checkCertManager" . -}}
+{{- include "oracle-database-operator.validateScopeConfig" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oracle-database-operator.name" . }}-controller-manager
+  namespace: {{ include "oracle-database-operator.namespace" . }}
+  labels:
+    {{- include "oracle-database-operator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.controllerManager.replicas }}
+  selector:
+    matchLabels:
+      {{- include "oracle-database-operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "oracle-database-operator.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: {{ include "oracle-database-operator.serviceAccountName" . }}
+      containers:
+      - name: manager
+        image: {{ include "oracle-database-operator.image" . }}
+        imagePullPolicy: {{ .Values.controllerManager.image.pullPolicy }}
+        command:
+        - /manager
+        args:
+        {{- if .Values.controllerManager.leaderElection }}
+        - --enable-leader-election
+        {{- end }}
+        env:
+        - name: WATCH_NAMESPACE
+          {{- if eq .Values.scope.mode "namespace" }}
+          value: {{ .Values.scope.watchNamespaces | join "," | quote }}
+          {{- else }}
+          value: ""
+          {{- end }}
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.controllerManager.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert

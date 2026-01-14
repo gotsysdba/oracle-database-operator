@@ -1,0 +1,198 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: {{ include "oracle-database-operator.certManagerInjectAnnotation" . }}
+  name: {{ include "oracle-database-operator.name" . }}-mutating-webhook-configuration
+  labels:
+    {{- include "oracle-database-operator.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ include "oracle-database-operator.webhookServiceName" . }}
+      namespace: {{ include "oracle-database-operator.namespace" . }}
+      path: /mutate-database-oracle-com-v4-dbcssystem
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: mdbcssystemv4.kb.io
+  rules:
+  - apiGroups:
+    - database.oracle.com
+    apiVersions:
+    - v4
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dbcssystems
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ include "oracle-database-operator.webhookServiceName" . }}
+      namespace: {{ include "oracle-database-operator.namespace" . }}
+      path: /mutate-database-oracle-com-v4-lrest
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: mlrest.kb.io
+  rules:
+  - apiGroups:
+    - database.oracle.com
+    apiVersions:
+    - v4
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - lrests
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ include "oracle-database-operator.webhookServiceName" . }}
+      namespace: {{ include "oracle-database-operator.namespace" . }}
+      path: /mutate-database-oracle-com-v4-lrpdb
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: mlrpdb.kb.io
+  rules:
+  - apiGroups:
+    - database.oracle.com
+    apiVersions:
+    - v4
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - lrpdbs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ include "oracle-database-operator.webhookServiceName" . }}
+      namespace: {{ include "oracle-database-operator.namespace" . }}
+      path: /mutate-database-oracle-com-v4-oraclerestart
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: moraclerestart.kb.io
+  rules:
+  - apiGroups:
+    - database.oracle.com
+    apiVersions:
+    - v4
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - oraclerestarts
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ include "oracle-database-operator.webhookServiceName" . }}
+      namespace: {{ include "oracle-database-operator.namespace" . }}
+      path: /mutate-database-oracle-com-v4-shardingdatabase
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: mshardingdatabasev4.kb.io
+  rules:
+  - apiGroups:
+    - database.oracle.com
+    apiVersions:
+    - v4
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - shardingdatabases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ include "oracle-database-operator.webhookServiceName" . }}
+      namespace: {{ include "oracle-database-operator.namespace" . }}
+      path: /mutate-database-oracle-com-v1alpha1-dataguardbroker
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: mdataguardbroker.kb.io
+  rules:
+  - apiGroups:
+    - database.oracle.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dataguardbrokers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ include "oracle-database-operator.webhookServiceName" . }}
+      namespace: {{ include "oracle-database-operator.namespace" . }}
+      path: /mutate-database-oracle-com-v1alpha1-oraclerestdataservice
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: moraclerestdataservice.kb.io
+  rules:
+  - apiGroups:
+    - database.oracle.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - oraclerestdataservices
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ include "oracle-database-operator.webhookServiceName" . }}
+      namespace: {{ include "oracle-database-operator.namespace" . }}
+      path: /mutate-database-oracle-com-v1alpha1-singleinstancedatabase
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: msingleinstancedatabase.kb.io
+  rules:
+  - apiGroups:
+    - database.oracle.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - singleinstancedatabases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ include "oracle-database-operator.webhookServiceName" . }}
+      namespace: {{ include "oracle-database-operator.namespace" . }}
+      path: /mutate-observability-oracle-com-v4-databaseobserver
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: mdatabaseobserver.kb.io
+  rules:
+  - apiGroups:
+    - observability.oracle.com
+    apiVersions:
+    - v4
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - databaseobservers
+  sideEffects: None
