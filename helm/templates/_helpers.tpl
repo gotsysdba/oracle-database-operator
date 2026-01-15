@@ -38,13 +38,16 @@ oracle-database-operator-system
 {{/*
 Check that cert-manager is installed.
 Only runs during actual install (not helm template) by first checking cluster access.
+Can be skipped by setting skipCertManagerCheck: true in values.
 */}}
 {{- define "oracle-database-operator.checkCertManager" -}}
+{{- if not .Values.skipCertManagerCheck -}}
 {{- /* Check if we have cluster access by looking up kube-system namespace */ -}}
 {{- if lookup "v1" "Namespace" "" "kube-system" -}}
 {{- /* We have cluster access, now check for cert-manager CRD */ -}}
 {{- if not (lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" "" "certificates.cert-manager.io") -}}
 {{- fail "cert-manager is required but not installed. Please install cert-manager first: https://cert-manager.io/docs/installation/" -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end }}

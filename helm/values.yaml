@@ -6,6 +6,10 @@
 # PREREQUISITE: cert-manager must be installed before this chart.
 # Install cert-manager: https://cert-manager.io/docs/installation/
 
+# Skip the cert-manager installation check during helm install
+# Set to true if cert-manager will be installed separately (e.g., via ArgoCD app-of-apps)
+skipCertManagerCheck: false
+
 # Deployment scope configuration
 scope:
   # "cluster" = watch all namespaces (default), creates ClusterRoleBinding

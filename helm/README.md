@@ -11,6 +11,9 @@ This Helm chart installs the Oracle Database Operator for Kubernetes.
 ## Installation
 
 ```bash
+# Install cert-manager
+kubectl apply -f kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+
 # Install with default configuration (cluster-scoped)
 helm install oracle-db-operator ./helm
 
@@ -22,6 +25,7 @@ helm uninstall oracle-db-operator
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
+| `skipCertManagerCheck` | Skip cert-manager installation check (for GitOps workflows where cert-manager is installed separately) | `false` |
 | `scope.mode` | Deployment scope: `cluster` (all namespaces) or `namespace` (specific namespaces) | `cluster` |
 | `scope.watchNamespaces` | List of namespaces to watch when `scope.mode=namespace` | `[]` |
 | `rbac.nodeAccess` | Grant permission to list/watch nodes (required for NodePort services) | `false` |
@@ -155,4 +159,4 @@ Note: The Secret containing the private key must be created separately for secur
 
 - This chart installs resources into the `oracle-database-operator-system` namespace. This is hardcoded due to CRDs containing webhook configurations.
 - CRDs are automatically installed from the `crds/` directory.
-- cert-manager must be installed before deploying this chart. The chart will fail at install time if cert-manager CRDs are not present.
+- cert-manager must be installed before deploying this chart. The chart will fail at install time if cert-manager CRDs are not present. Use `--set skipCertManagerCheck=true` to bypass this check for GitOps workflows (e.g., ArgoCD app-of-apps) where cert-manager is installed separately.
