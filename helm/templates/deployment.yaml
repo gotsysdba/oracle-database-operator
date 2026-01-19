@@ -25,6 +25,33 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: {{ include "oracle-database-operator.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.controllerManager.affinity (gt (int .Values.controllerManager.replicas) 1) }}
+      affinity:
+        {{- if .Values.controllerManager.affinity }}
+        {{- toYaml .Values.controllerManager.affinity | nindent 8 }}
+        {{- else }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  {{- include "oracle-database-operator.selectorLabels" . | nindent 18 }}
+              topologyKey: kubernetes.io/hostname
+        {{- end }}
+      {{- end }}
+      {{- with .Values.controllerManager.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controllerManager.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: manager
         image: {{ include "oracle-database-operator.image" . }}
@@ -42,10 +69,23 @@ spec:
           {{- else }}
           value: ""
           {{- end }}
+        {{- with .Values.controllerManager.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         ports:
-        - containerPort: 9443
+        - containerPort: {{ .Values.webhook.port | default 9443 }}
           name: webhook-server
           protocol: TCP
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.webhook.port | default 9443 }}
+          initialDelaySeconds: {{ .Values.controllerManager.probes.liveness.initialDelaySeconds | default 15 }}
+          periodSeconds: {{ .Values.controllerManager.probes.liveness.periodSeconds | default 20 }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.webhook.port | default 9443 }}
+          initialDelaySeconds: {{ .Values.controllerManager.probes.readiness.initialDelaySeconds | default 5 }}
+          periodSeconds: {{ .Values.controllerManager.probes.readiness.periodSeconds | default 10 }}
         resources:
           {{- toYaml .Values.controllerManager.resources | nindent 10 }}
         securityContext:
@@ -59,9 +99,9 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: {{ .Values.controllerManager.terminationGracePeriodSeconds | default 10 }}
       volumes:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: webhook-server-cert
+          secretName: {{ .Values.webhook.certificateSecretName | default "webhook-server-cert" }}

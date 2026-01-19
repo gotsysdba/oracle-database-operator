@@ -1,12 +1,16 @@
 # Default values for oracle-database-operator
-#
-# NOTE: This chart installs resources into the 'oracle-database-operator-system' namespace.
-# This is hardcoded because the CRDs contain webhook configurations that reference this namespace.
-#
-# PREREQUISITE: cert-manager must be installed before this chart.
-# Install cert-manager: https://cert-manager.io/docs/installation/
+
+# Image pull secrets for private registries (shared with cert-manager subchart)
+imagePullSecrets: &imagePullSecrets []
+# Example:
+# imagePullSecrets: &imagePullSecrets
+#   - name: my-registry-secret
+
+# Namespace for Oracle Database Operator resources
+namespace: "oracle-database-operator-system"
 
 # Skip the cert-manager installation check during helm install
+# Only applies when cert-manager.enabled=false (using external cert-manager)
 # Set to true if cert-manager will be installed separately (e.g., via ArgoCD app-of-apps)
 skipCertManagerCheck: false
 
@@ -33,8 +37,10 @@ controllerManager:
 
   image:
     repository: container-registry.oracle.com/database/operator
-    tag: latest
-    pullPolicy: Always
+    # WARNING: Using 'latest' tag is not recommended for production
+    # Specify a version tag for reproducible deployments
+    tag: "2.0"
+    pullPolicy: IfNotPresent
 
   # Resource limits and requests
   resources:
@@ -48,6 +54,63 @@ controllerManager:
   # Enable leader election for controller manager
   leaderElection: true
 
+  # Health probe configuration
+  probes:
+    liveness:
+      initialDelaySeconds: 15
+      periodSeconds: 20
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+
+  # Pod Disruption Budget (only applies when replicas > 1)
+  pdb:
+    enabled: true
+    minAvailable: 1
+    # maxUnavailable: 1  # Alternative to minAvailable
+
+  # Pod affinity/anti-affinity rules
+  # If not set and replicas > 1, a default soft anti-affinity is applied
+  affinity: {}
+  # Example custom affinity:
+  # affinity:
+  #   podAntiAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #     - labelSelector:
+  #         matchLabels:
+  #           app.kubernetes.io/name: oracle-database-operator
+  #       topologyKey: kubernetes.io/hostname
+
+  # Node selector for pod scheduling
+  nodeSelector: {}
+  # Example:
+  # nodeSelector:
+  #   kubernetes.io/os: linux
+
+  # Tolerations for pod scheduling
+  tolerations: []
+  # Example:
+  # tolerations:
+  # - key: "dedicated"
+  #   operator: "Equal"
+  #   value: "database-operator"
+  #   effect: "NoSchedule"
+
+  # Termination grace period in seconds
+  terminationGracePeriodSeconds: 10
+
+  # Extra environment variables for the controller manager container
+  extraEnv: []
+  # Example:
+  # extraEnv:
+  # - name: LOG_LEVEL
+  #   value: "debug"
+  # - name: MY_SECRET
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: my-secret
+  #       key: password
+
 # Service Account configuration
 serviceAccount:
   # The name of the service account to use
@@ -59,14 +122,21 @@ serviceAccount:
 webhook:
   # Failure policy for webhooks (Fail or Ignore)
   failurePolicy: Fail
+  # Webhook server port
+  port: 9443
+  # Secret name containing the webhook TLS certificate
+  certificateSecretName: webhook-server-cert
+  # Webhook timeout in seconds (optional)
+  timeoutSeconds: 10
 
 # OCI Credentials for Autonomous Database
 # Required for ADB provisioning/binding. See: set_ocicredentials.sh
 ociCredentials:
-  # Option 1: Reference an existing ConfigMap
-  configMapName: ""
+  # Option 1: Reference an existing Secret containing OCI credentials
+  # BREAKING CHANGE: Previously named 'configMapName', now uses Secret
+  existingSecretName: ""
 
-  # Option 2: Provide values to create a ConfigMap (used if configMapName is empty)
+  # Option 2: Provide values to create a Secret (used if existingSecretName is empty)
   tenancy: ""
   user: ""
   fingerprint: ""
@@ -76,3 +146,36 @@ ociCredentials:
   # Reference an existing Secret containing the OCI API private key
   # User must create this separately (e.g., using set_ocicredentials.sh or kubectl)
   secretName: ""
+
+# cert-manager subchart values (passed to subchart when enabled=true)
+# See README.md and examples/ for installation scenarios
+cert-manager:
+  enabled: true
+  # Namespace for cert-manager (subchart install location and webhook lookup)
+  namespace: "cert-manager"
+  installCRDs: true
+  global:
+    imagePullSecrets: *imagePullSecrets
+
+# Custom cert-manager-related configuration (not passed to subchart)
+certManagerConfig:
+  waitForWebhook:
+    # Waits for cert-manager webhook before creating Issuer/Certificate resources
+    # Set to false only if cert-manager is known to be ready (e.g., pre-installed and running)
+    enabled: true
+    # WARNING: Using 'latest' tag is not recommended for production
+    image: registry.k8s.io/kubectl:v1.28.0
+    imagePullPolicy: IfNotPresent
+    # Timeout configuration: maxAttempts * sleepSeconds = total wait time
+    maxAttempts: 60
+    sleepSeconds: 5
+    # Resource limits for the wait job
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+  # External cert-manager webhook service name (only used when cert-manager.enabled=false)
+  externalWebhookServiceName: "cert-manager-webhook"

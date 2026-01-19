@@ -29,19 +29,53 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
-Namespace for operator resources (hardcoded - required by CRD webhook configurations)
+Namespace for operator resources
 */}}
 {{- define "oracle-database-operator.namespace" -}}
-oracle-database-operator-system
+{{- .Values.namespace }}
+{{- end }}
+
+{{/*
+Namespace for cert-manager
+*/}}
+{{- define "oracle-database-operator.certManagerNamespace" -}}
+{{- index .Values "cert-manager" "namespace" }}
+{{- end }}
+
+{{/*
+cert-manager webhook service name
+When subchart: uses release name prefix
+When external: uses externalWebhookServiceName
+*/}}
+{{- define "oracle-database-operator.certManagerWebhookService" -}}
+{{- if index .Values "cert-manager" "enabled" -}}
+{{- printf "%s-cert-manager-webhook" .Release.Name -}}
+{{- else -}}
+{{- .Values.certManagerConfig.externalWebhookServiceName -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+cert-manager ValidatingWebhookConfiguration name
+When subchart: uses release name prefix
+When external: uses default cert-manager-webhook
+*/}}
+{{- define "oracle-database-operator.certManagerWebhookConfig" -}}
+{{- if index .Values "cert-manager" "enabled" -}}
+{{- printf "%s-cert-manager-webhook" .Release.Name -}}
+{{- else -}}
+cert-manager-webhook
+{{- end -}}
 {{- end }}
 
 {{/*
 Check that cert-manager is installed.
 Only runs during actual install (not helm template) by first checking cluster access.
 Can be skipped by setting skipCertManagerCheck: true in values.
+Skipped when cert-manager.enabled=true since the subchart will install it.
 */}}
 {{- define "oracle-database-operator.checkCertManager" -}}
-{{- if not .Values.skipCertManagerCheck -}}
+{{- if and (not .Values.skipCertManagerCheck) (not (index .Values "cert-manager" "enabled")) -}}
 {{- /* Check if we have cluster access by looking up kube-system namespace */ -}}
 {{- if lookup "v1" "Namespace" "" "kube-system" -}}
 {{- /* We have cluster access, now check for cert-manager CRD */ -}}
@@ -134,4 +168,152 @@ Cert-manager inject annotation value
 */}}
 {{- define "oracle-database-operator.certManagerInjectAnnotation" -}}
 {{- printf "%s/%s" (include "oracle-database-operator.namespace" .) (include "oracle-database-operator.certificateName" .) }}
+{{- end }}
+
+{{/*
+Mutating webhook definitions
+Each entry: name, path, apiGroup, apiVersion, resources, operations (optional, defaults to CREATE,UPDATE)
+*/}}
+{{- define "oracle-database-operator.mutatingWebhooks" -}}
+- name: mdbcssystemv4.kb.io
+  path: /mutate-database-oracle-com-v4-dbcssystem
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: dbcssystems
+- name: mlrest.kb.io
+  path: /mutate-database-oracle-com-v4-lrest
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: lrests
+- name: mlrpdb.kb.io
+  path: /mutate-database-oracle-com-v4-lrpdb
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: lrpdbs
+- name: moraclerestart.kb.io
+  path: /mutate-database-oracle-com-v4-oraclerestart
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: oraclerestarts
+- name: mshardingdatabasev4.kb.io
+  path: /mutate-database-oracle-com-v4-shardingdatabase
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: shardingdatabases
+- name: mdataguardbroker.kb.io
+  path: /mutate-database-oracle-com-v1alpha1-dataguardbroker
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: dataguardbrokers
+- name: moraclerestdataservice.kb.io
+  path: /mutate-database-oracle-com-v1alpha1-oraclerestdataservice
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: oraclerestdataservices
+- name: msingleinstancedatabase.kb.io
+  path: /mutate-database-oracle-com-v1alpha1-singleinstancedatabase
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: singleinstancedatabases
+- name: mdatabaseobserver.kb.io
+  path: /mutate-observability-oracle-com-v4-databaseobserver
+  apiGroup: observability.oracle.com
+  apiVersion: v4
+  resources: databaseobservers
+{{- end }}
+
+{{/*
+Validating webhook definitions
+Each entry: name, path, apiGroup, apiVersion, resources, operations (optional, defaults to CREATE,UPDATE)
+*/}}
+{{- define "oracle-database-operator.validatingWebhooks" -}}
+- name: vautonomouscontainerdatabasev4.kb.io
+  path: /validate-database-oracle-com-v4-autonomouscontainerdatabase
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: autonomouscontainerdatabases
+- name: vautonomousdatabasebackupv4.kb.io
+  path: /validate-database-oracle-com-v4-autonomousdatabasebackup
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: autonomousdatabasebackups
+- name: vautonomousdatabaserestorev4.kb.io
+  path: /validate-database-oracle-com-v4-autonomousdatabaserestore
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: autonomousdatabaserestores
+- name: vautonomousdatabasev4.kb.io
+  path: /validate-database-oracle-com-v4-autonomousdatabase
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: autonomousdatabases
+- name: vdbcssystemv4.kb.io
+  path: /validate-database-oracle-com-v4-dbcssystem
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: dbcssystems
+  operations: [CREATE, UPDATE, DELETE]
+- name: vlrest.kb.io
+  path: /validate-database-oracle-com-v4-lrest
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: lrests
+- name: vlrpdb.kb.io
+  path: /validate-database-oracle-com-v4-lrpdb
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: lrpdbs
+- name: voraclerestart.kb.io
+  path: /validate-database-oracle-com-v4-oraclerestart
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: oraclerestarts
+  operations: [CREATE, UPDATE, DELETE]
+- name: vshardingdatabasev4.kb.io
+  path: /validate-database-oracle-com-v4-shardingdatabase
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: shardingdatabases
+  operations: [CREATE, UPDATE, DELETE]
+- name: vautonomouscontainerdatabasev1alpha1.kb.io
+  path: /validate-database-oracle-com-v1alpha1-autonomouscontainerdatabase
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: autonomouscontainerdatabases
+- name: vautonomousdatabasebackupv1alpha1.kb.io
+  path: /validate-database-oracle-com-v1alpha1-autonomousdatabasebackup
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: autonomousdatabasebackups
+- name: vautonomousdatabaserestorev1alpha1.kb.io
+  path: /validate-database-oracle-com-v1alpha1-autonomousdatabaserestore
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: autonomousdatabaserestores
+- name: vautonomousdatabasev1alpha1.kb.io
+  path: /validate-database-oracle-com-v1alpha1-autonomousdatabase
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: autonomousdatabases
+- name: vdataguardbroker.kb.io
+  path: /validate-database-oracle-com-v1alpha1-dataguardbroker
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: dataguardbrokers
+- name: voraclerestdataservice.kb.io
+  path: /validate-database-oracle-com-v1alpha1-oraclerestdataservice
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: oraclerestdataservices
+- name: vsingleinstancedatabase.kb.io
+  path: /validate-database-oracle-com-v1alpha1-singleinstancedatabase
+  apiGroup: database.oracle.com
+  apiVersion: v1alpha1
+  resources: singleinstancedatabases
+  operations: [CREATE, UPDATE, DELETE]
+- name: vdatabaseobserver.kb.io
+  path: /validate-observability-oracle-com-v4-databaseobserver
+  apiGroup: observability.oracle.com
+  apiVersion: v4
+  resources: databaseobservers
 {{- end }}

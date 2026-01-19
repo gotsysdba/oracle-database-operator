@@ -16,3 +16,9 @@ keywords:
   - database
   - operator
   - kubernetes
+
+dependencies:
+  - name: cert-manager
+    version: "v1.19.1"
+    repository: https://charts.jetstack.io
+    condition: cert-manager.enabled
