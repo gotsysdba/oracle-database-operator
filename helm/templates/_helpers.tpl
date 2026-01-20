@@ -51,7 +51,7 @@ When external: uses externalWebhookServiceName
 {{- if index .Values "cert-manager" "enabled" -}}
 {{- printf "%s-cert-manager-webhook" .Release.Name -}}
 {{- else -}}
-{{- .Values.certManagerConfig.externalWebhookServiceName -}}
+{{- .Values.certManagerWaitJob.externalWebhookServiceName | default "cert-manager-webhook" -}}
 {{- end -}}
 {{- end }}
 

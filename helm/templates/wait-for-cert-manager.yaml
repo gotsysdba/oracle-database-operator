@@ -1,7 +1,7 @@
-{{- if .Values.certManagerConfig.waitForWebhook.enabled }}
+{{- if .Values.certManagerWaitJob.enabled }}
 {{- $webhookConfigName := include "oracle-database-operator.certManagerWebhookConfig" . -}}
-{{- $maxAttempts := .Values.certManagerConfig.waitForWebhook.maxAttempts | default 60 -}}
-{{- $sleepSeconds := .Values.certManagerConfig.waitForWebhook.sleepSeconds | default 5 -}}
+{{- $maxAttempts := .Values.certManagerWaitJob.maxAttempts | default 60 -}}
+{{- $sleepSeconds := .Values.certManagerWaitJob.sleepSeconds | default 5 -}}
 {{- $timeoutSeconds := mul $maxAttempts $sleepSeconds -}}
 # Wait for cert-manager webhook to be ready before creating Issuer resources
 # Uses kubectl wait to check for caBundle injection (no shell required)
@@ -83,15 +83,15 @@ spec:
           type: RuntimeDefault
       containers:
       - name: wait-for-webhook
-        image: {{ .Values.certManagerConfig.waitForWebhook.image }}
-        imagePullPolicy: {{ .Values.certManagerConfig.waitForWebhook.imagePullPolicy | default "IfNotPresent" }}
+        image: {{ .Values.certManagerWaitJob.image.repository | default "registry.k8s.io/kubectl" }}:{{ .Values.certManagerWaitJob.image.tag }}
+        imagePullPolicy: {{ .Values.certManagerWaitJob.image.pullPolicy | default "IfNotPresent" }}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           capabilities:
             drop:
             - ALL
-        {{- with .Values.certManagerConfig.waitForWebhook.resources }}
+        {{- with .Values.certManagerWaitJob.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- else }}

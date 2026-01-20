@@ -89,13 +89,14 @@ helm uninstall oraoperator
 | `cert-manager.enabled` | Install cert-manager as a subchart | `true` |
 | `cert-manager.namespace` | Namespace for cert-manager | `cert-manager` |
 | `cert-manager.installCRDs` | Install cert-manager CRDs | `true` |
-| `certManagerConfig.waitForWebhook.enabled` | Wait for cert-manager webhook before creating Issuer | `true` |
-| `certManagerConfig.waitForWebhook.image` | Image for wait job | `registry.k8s.io/kubectl:v1.28.0` |
-| `certManagerConfig.waitForWebhook.imagePullPolicy` | Image pull policy for wait job | `IfNotPresent` |
-| `certManagerConfig.waitForWebhook.maxAttempts` | Max retry attempts for webhook readiness | `60` |
-| `certManagerConfig.waitForWebhook.sleepSeconds` | Sleep duration between retries | `5` |
-| `certManagerConfig.waitForWebhook.resources` | Resource limits for wait job | See values.yaml |
-| `certManagerConfig.externalWebhookServiceName` | Webhook service name (when `cert-manager.enabled=false`) | `cert-manager-webhook` |
+| `certManagerWaitJob.enabled` | Wait for cert-manager webhook before creating Issuer | `true` |
+| `certManagerWaitJob.image.repository` | Image repository for wait job | `registry.k8s.io/kubectl` |
+| `certManagerWaitJob.image.tag` | Image tag for wait job | `v1.28.0` |
+| `certManagerWaitJob.image.pullPolicy` | Image pull policy for wait job | `IfNotPresent` |
+| `certManagerWaitJob.maxAttempts` | Max retry attempts for webhook readiness | `60` |
+| `certManagerWaitJob.sleepSeconds` | Sleep duration between retries | `5` |
+| `certManagerWaitJob.resources` | Resource limits for wait job | `{}` |
+| `certManagerWaitJob.externalWebhookServiceName` | Webhook service name (when `cert-manager.enabled=false`) | `cert-manager-webhook` |
 | `skipCertManagerCheck` | Skip cert-manager CRD check (for GitOps workflows) | `false` |
 
 ### General Settings

@@ -13,5 +13,5 @@ cert-manager:
   enabled: false
   namespace: "cert-manager"
 
-certManagerConfig:
+certManagerWaitJob:
   externalWebhookServiceName: "cert-manager-webhook"

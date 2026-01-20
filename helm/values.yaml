@@ -140,7 +140,7 @@ ociCredentials:
   user: ""
   fingerprint: ""
   region: ""
-  passphrase: ""  # optional, for encrypted private keys
+  passphrase: "" # optional, for encrypted private keys
 
   # Reference an existing Secret containing the OCI API private key
   # User must create this separately (e.g., using set_ocicredentials.sh or kubectl)
@@ -156,25 +156,22 @@ cert-manager:
   global:
     imagePullSecrets: *imagePullSecrets
 
-# Custom cert-manager-related configuration (not passed to subchart)
-certManagerConfig:
-  waitForWebhook:
-    # Waits for cert-manager webhook before creating Issuer/Certificate resources
-    # Set to false only if cert-manager is known to be ready (e.g., pre-installed and running)
-    enabled: true
-    # WARNING: Using 'latest' tag is not recommended for production
-    image: registry.k8s.io/kubectl:v1.28.0
-    imagePullPolicy: IfNotPresent
-    # Timeout configuration: maxAttempts * sleepSeconds = total wait time
-    maxAttempts: 60
-    sleepSeconds: 5
-    # Resource limits for the wait job
-    resources:
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 50m
-        memory: 64Mi
+# Wait job configuration for cert-manager webhook readiness (not passed to subchart)
+certManagerWaitJob:
+  # Waits for cert-manager webhook before creating Issuer/Certificate resources
+  # Set to false only if cert-manager is known to be ready (e.g., pre-installed and running)
+  enabled: true
+  image:
+    repository: registry.k8s.io/kubectl
+    tag: "v1.28.0"
+    pullPolicy: IfNotPresent
+
+  # Timeout configuration: maxAttempts * sleepSeconds = total wait time
+  maxAttempts: 60
+  sleepSeconds: 5
+
+  # Resource limits for the wait job (defaults applied in template if empty)
+  resources: {}
+
   # External cert-manager webhook service name (only used when cert-manager.enabled=false)
   externalWebhookServiceName: "cert-manager-webhook"
