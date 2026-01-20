@@ -16,3 +16,5 @@ spec:
     kind: Issuer
     name: {{ include "oracle-database-operator.issuerName" . }}
   secretName: webhook-server-cert
+  privateKey:
+    rotationPolicy: Always
