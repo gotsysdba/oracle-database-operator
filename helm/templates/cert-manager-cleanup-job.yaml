@@ -1,0 +1,115 @@
+{{- if index .Values "cert-manager" "enabled" }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-cert-manager-cleanup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oracle-database-operator.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-cert-manager-cleanup
+  labels:
+    {{- include "oracle-database-operator.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+rules:
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["clusterroles", "clusterrolebindings"]
+  verbs: ["list", "delete"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings"]
+  verbs: ["list", "delete"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
+  verbs: ["list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-cert-manager-cleanup
+  labels:
+    {{- include "oracle-database-operator.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-cert-manager-cleanup
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ .Release.Name }}-cert-manager-cleanup
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-cert-manager-cleanup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oracle-database-operator.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  ttlSecondsAfterFinished: 60
+  template:
+    metadata:
+      labels:
+        {{- include "oracle-database-operator.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-cert-manager-cleanup
+      restartPolicy: OnFailure
+      containers:
+      - name: cleanup
+        image: {{ .Values.certManagerWaitJob.image.repository }}:{{ .Values.certManagerWaitJob.image.tag }}
+        imagePullPolicy: {{ .Values.certManagerWaitJob.image.pullPolicy }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Cleaning up cert-manager cluster-scoped resources for release: {{ .Release.Name }}"
+
+          # Delete ClusterRoleBindings
+          echo "Deleting ClusterRoleBindings..."
+          kubectl delete clusterrolebinding -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/name=cert-manager --ignore-not-found=true
+
+          # Delete ClusterRoles
+          echo "Deleting ClusterRoles..."
+          kubectl delete clusterrole -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/name=cert-manager --ignore-not-found=true
+
+          # Delete webhook configurations
+          echo "Deleting webhook configurations..."
+          kubectl delete mutatingwebhookconfiguration {{ .Release.Name }}-cert-manager-webhook --ignore-not-found=true
+          kubectl delete validatingwebhookconfiguration {{ .Release.Name }}-cert-manager-webhook --ignore-not-found=true
+
+          # Delete Roles and RoleBindings in kube-system (leader election)
+          echo "Deleting kube-system Roles and RoleBindings..."
+          kubectl delete role -n kube-system -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/name=cert-manager --ignore-not-found=true
+          kubectl delete rolebinding -n kube-system -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/name=cert-manager --ignore-not-found=true
+
+          echo "Cleanup complete"
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
