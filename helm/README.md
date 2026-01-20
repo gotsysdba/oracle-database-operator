@@ -97,7 +97,6 @@ helm uninstall oraoperator
 | `certManagerWaitJob.sleepSeconds` | Sleep duration between retries | `5` |
 | `certManagerWaitJob.resources` | Resource limits for wait job | `{}` |
 | `certManagerWaitJob.externalWebhookServiceName` | Webhook service name (when `cert-manager.enabled=false`) | `cert-manager-webhook` |
-| `skipCertManagerCheck` | Skip cert-manager CRD check (for GitOps workflows) | `false` |
 
 ### General Settings
 
@@ -114,31 +113,31 @@ helm uninstall oraoperator
 | `scope.watchNamespaces` | Namespaces to watch when `scope.mode=namespace` | `[]` |
 | `rbac.nodeAccess` | Grant permission to list/watch nodes (for NodePort services) | `false` |
 
-### Controller Manager Settings
+### Operator Deployment Settings
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `controllerManager.replicas` | Number of replicas | `3` |
-| `controllerManager.image.repository` | Image repository | `container-registry.oracle.com/database/operator` |
-| `controllerManager.image.tag` | Image tag | `2.0` |
-| `controllerManager.image.pullPolicy` | Image pull policy | `IfNotPresent` |
-| `controllerManager.resources.limits.cpu` | CPU limit | `400m` |
-| `controllerManager.resources.limits.memory` | Memory limit | `400Mi` |
-| `controllerManager.resources.requests.cpu` | CPU request | `400m` |
-| `controllerManager.resources.requests.memory` | Memory request | `400Mi` |
-| `controllerManager.leaderElection` | Enable leader election | `true` |
-| `controllerManager.probes.liveness.initialDelaySeconds` | Liveness probe initial delay | `15` |
-| `controllerManager.probes.liveness.periodSeconds` | Liveness probe period | `20` |
-| `controllerManager.probes.readiness.initialDelaySeconds` | Readiness probe initial delay | `5` |
-| `controllerManager.probes.readiness.periodSeconds` | Readiness probe period | `10` |
-| `controllerManager.pdb.enabled` | Enable PodDisruptionBudget (when replicas > 1) | `true` |
-| `controllerManager.pdb.minAvailable` | Minimum available pods | `1` |
-| `controllerManager.pdb.maxUnavailable` | Maximum unavailable pods (alternative to minAvailable) | - |
-| `controllerManager.affinity` | Pod affinity rules (default: soft anti-affinity when replicas > 1) | `{}` |
-| `controllerManager.nodeSelector` | Node selector for scheduling | `{}` |
-| `controllerManager.tolerations` | Pod tolerations | `[]` |
-| `controllerManager.terminationGracePeriodSeconds` | Termination grace period | `10` |
-| `controllerManager.extraEnv` | Extra environment variables | `[]` |
+| `replicas` | Number of replicas | `3` |
+| `image.repository` | Image repository | `container-registry.oracle.com/database/operator` |
+| `image.tag` | Image tag | `2.0` |
+| `image.pullPolicy` | Image pull policy | `IfNotPresent` |
+| `resources.limits.cpu` | CPU limit | `400m` |
+| `resources.limits.memory` | Memory limit | `400Mi` |
+| `resources.requests.cpu` | CPU request | `400m` |
+| `resources.requests.memory` | Memory request | `400Mi` |
+| `leaderElection` | Enable leader election | `true` |
+| `probes.liveness.initialDelaySeconds` | Liveness probe initial delay | `15` |
+| `probes.liveness.periodSeconds` | Liveness probe period | `20` |
+| `probes.readiness.initialDelaySeconds` | Readiness probe initial delay | `5` |
+| `probes.readiness.periodSeconds` | Readiness probe period | `10` |
+| `pdb.enabled` | Enable PodDisruptionBudget (when replicas > 1) | `true` |
+| `pdb.minAvailable` | Minimum available pods | `1` |
+| `pdb.maxUnavailable` | Maximum unavailable pods (alternative to minAvailable) | - |
+| `affinity` | Pod affinity rules (default: soft anti-affinity when replicas > 1) | `{}` |
+| `nodeSelector` | Node selector for scheduling | `{}` |
+| `tolerations` | Pod tolerations | `[]` |
+| `terminationGracePeriodSeconds` | Termination grace period | `10` |
+| `extraEnv` | Extra environment variables | `[]` |
 
 ### Webhook Settings
 
@@ -183,7 +182,7 @@ helm upgrade --install oraoperator . \
 
 ## High Availability
 
-When running multiple replicas (`controllerManager.replicas > 1`), the chart automatically:
+When running multiple replicas (`replicas > 1`), the chart automatically:
 
 1. **Enables leader election** - Only one replica processes events at a time
 2. **Applies pod anti-affinity** - Spreads pods across nodes (soft preference)
@@ -193,8 +192,8 @@ To customize HA behavior:
 
 ```bash
 helm upgrade --install oraoperator . \
-  --set controllerManager.replicas=3 \
-  --set controllerManager.pdb.minAvailable=2
+  --set replicas=3 \
+  --set pdb.minAvailable=2
 ```
 
 ## OCI Credentials

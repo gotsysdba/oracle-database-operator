@@ -1,4 +1,4 @@
-{{- if and .Values.controllerManager.pdb.enabled (gt (int .Values.controllerManager.replicas) 1) }}
+{{- if and .Values.pdb.enabled (gt (int .Values.replicas) 1) }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -7,10 +7,10 @@ metadata:
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 spec:
-  {{- if .Values.controllerManager.pdb.minAvailable }}
-  minAvailable: {{ .Values.controllerManager.pdb.minAvailable }}
-  {{- else if .Values.controllerManager.pdb.maxUnavailable }}
-  maxUnavailable: {{ .Values.controllerManager.pdb.maxUnavailable }}
+  {{- if .Values.pdb.minAvailable }}
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  {{- else if .Values.pdb.maxUnavailable }}
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
   {{- else }}
   minAvailable: 1
   {{- end }}

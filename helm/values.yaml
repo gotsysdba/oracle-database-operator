@@ -1,18 +1,19 @@
 # Default values for oracle-database-operator
+replicas: 3
+
+# Namespace for Oracle Database Operator resources
+namespace: "oracle-database-operator-system"
 
 # Image pull secrets for private registries (shared with cert-manager subchart)
 imagePullSecrets: &imagePullSecrets []
 # Example:
 # imagePullSecrets: &imagePullSecrets
 #   - name: my-registry-secret
-
-# Namespace for Oracle Database Operator resources
-namespace: "oracle-database-operator-system"
-
-# Skip the cert-manager installation check during helm install
-# Only applies when cert-manager.enabled=false (using external cert-manager)
-# Set to true if cert-manager will be installed separately (e.g., via ArgoCD app-of-apps)
-skipCertManagerCheck: false
+image:
+  repository: container-registry.oracle.com/database/operator
+  # Specify a version tag for reproducible deployments
+  tag: "2.0"
+  pullPolicy: IfNotPresent
 
 # Deployment scope configuration
 scope:
@@ -31,85 +32,74 @@ rbac:
   # Required if database CRs will use NodePort service type
   nodeAccess: false
 
-# Controller Manager configuration
-controllerManager:
-  replicas: 3
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 400m
+    memory: 400Mi
+  requests:
+    cpu: 400m
+    memory: 400Mi
 
-  image:
-    repository: container-registry.oracle.com/database/operator
-    # WARNING: Using 'latest' tag is not recommended for production
-    # Specify a version tag for reproducible deployments
-    tag: "2.0"
-    pullPolicy: IfNotPresent
+# Enable leader election for controller manager
+leaderElection: true
 
-  # Resource limits and requests
-  resources:
-    limits:
-      cpu: 400m
-      memory: 400Mi
-    requests:
-      cpu: 400m
-      memory: 400Mi
+# Health probe configuration
+probes:
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
 
-  # Enable leader election for controller manager
-  leaderElection: true
+# Pod Disruption Budget (only applies when replicas > 1)
+pdb:
+  enabled: true
+  minAvailable: 1
+  # maxUnavailable: 1  # Alternative to minAvailable
 
-  # Health probe configuration
-  probes:
-    liveness:
-      initialDelaySeconds: 15
-      periodSeconds: 20
-    readiness:
-      initialDelaySeconds: 5
-      periodSeconds: 10
+# Pod affinity/anti-affinity rules
+# If not set and replicas > 1, a default soft anti-affinity is applied
+affinity: {}
+# Example custom affinity:
+# affinity:
+#   podAntiAffinity:
+#     requiredDuringSchedulingIgnoredDuringExecution:
+#     - labelSelector:
+#         matchLabels:
+#           app.kubernetes.io/name: oracle-database-operator
+#       topologyKey: kubernetes.io/hostname
 
-  # Pod Disruption Budget (only applies when replicas > 1)
-  pdb:
-    enabled: true
-    minAvailable: 1
-    # maxUnavailable: 1  # Alternative to minAvailable
+# Node selector for pod scheduling
+nodeSelector: {}
+# Example:
+# nodeSelector:
+#   kubernetes.io/os: linux
 
-  # Pod affinity/anti-affinity rules
-  # If not set and replicas > 1, a default soft anti-affinity is applied
-  affinity: {}
-  # Example custom affinity:
-  # affinity:
-  #   podAntiAffinity:
-  #     requiredDuringSchedulingIgnoredDuringExecution:
-  #     - labelSelector:
-  #         matchLabels:
-  #           app.kubernetes.io/name: oracle-database-operator
-  #       topologyKey: kubernetes.io/hostname
+# Tolerations for pod scheduling
+tolerations: []
+# Example:
+# tolerations:
+# - key: "dedicated"
+#   operator: "Equal"
+#   value: "database-operator"
+#   effect: "NoSchedule"
 
-  # Node selector for pod scheduling
-  nodeSelector: {}
-  # Example:
-  # nodeSelector:
-  #   kubernetes.io/os: linux
+# Termination grace period in seconds
+terminationGracePeriodSeconds: 10
 
-  # Tolerations for pod scheduling
-  tolerations: []
-  # Example:
-  # tolerations:
-  # - key: "dedicated"
-  #   operator: "Equal"
-  #   value: "database-operator"
-  #   effect: "NoSchedule"
-
-  # Termination grace period in seconds
-  terminationGracePeriodSeconds: 10
-
-  # Extra environment variables for the controller manager container
-  extraEnv: []
-  # Example:
-  # extraEnv:
-  # - name: LOG_LEVEL
-  #   value: "debug"
-  # - name: MY_SECRET
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: my-secret
-  #       key: password
+# Extra environment variables for the controller manager container
+extraEnv: []
+# Example:
+# extraEnv:
+# - name: LOG_LEVEL
+#   value: "debug"
+# - name: MY_SECRET
+#   valueFrom:
+#     secretKeyRef:
+#       name: my-secret
+#       key: password
 
 # Service Account configuration
 serviceAccount:
@@ -146,16 +136,6 @@ ociCredentials:
   # User must create this separately (e.g., using set_ocicredentials.sh or kubectl)
   secretName: ""
 
-# cert-manager subchart values (passed to subchart when enabled=true)
-# See README.md and examples/ for installation scenarios
-cert-manager:
-  enabled: true
-  # Namespace for cert-manager (subchart install location and webhook lookup)
-  namespace: "cert-manager"
-  installCRDs: true
-  global:
-    imagePullSecrets: *imagePullSecrets
-
 # Wait job configuration for cert-manager webhook readiness (not passed to subchart)
 certManagerWaitJob:
   # Waits for cert-manager webhook before creating Issuer/Certificate resources
@@ -175,3 +155,13 @@ certManagerWaitJob:
 
   # External cert-manager webhook service name (only used when cert-manager.enabled=false)
   externalWebhookServiceName: "cert-manager-webhook"
+
+# cert-manager subchart values (passed to subchart when enabled=true)
+# See README.md and examples/ for installation scenarios
+cert-manager:
+  enabled: true
+  # Namespace for cert-manager (subchart install location and webhook lookup)
+  namespace: "cert-manager"
+  installCRDs: true
+  global:
+    imagePullSecrets: *imagePullSecrets

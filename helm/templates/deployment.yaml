@@ -1,4 +1,3 @@
-{{- include "oracle-database-operator.checkCertManager" . -}}
 {{- include "oracle-database-operator.validateScopeConfig" . -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -11,7 +10,7 @@ metadata:
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.controllerManager.replicas }}
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       {{- include "oracle-database-operator.selectorLabels" . | nindent 6 }}
@@ -29,10 +28,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.controllerManager.affinity (gt (int .Values.controllerManager.replicas) 1) }}
+      {{- if or .Values.affinity (gt (int .Values.replicas) 1) }}
       affinity:
-        {{- if .Values.controllerManager.affinity }}
-        {{- toYaml .Values.controllerManager.affinity | nindent 8 }}
+        {{- if .Values.affinity }}
+        {{- toYaml .Values.affinity | nindent 8 }}
         {{- else }}
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -44,22 +43,22 @@ spec:
               topologyKey: kubernetes.io/hostname
         {{- end }}
       {{- end }}
-      {{- with .Values.controllerManager.nodeSelector }}
+      {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.controllerManager.tolerations }}
+      {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
       - name: manager
         image: {{ include "oracle-database-operator.image" . }}
-        imagePullPolicy: {{ .Values.controllerManager.image.pullPolicy }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - /manager
         args:
-        {{- if .Values.controllerManager.leaderElection }}
+        {{- if .Values.leaderElection }}
         - --enable-leader-election
         {{- end }}
         env:
@@ -69,7 +68,7 @@ spec:
           {{- else }}
           value: ""
           {{- end }}
-        {{- with .Values.controllerManager.extraEnv }}
+        {{- with .Values.extraEnv }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
         ports:
@@ -79,15 +78,15 @@ spec:
         livenessProbe:
           tcpSocket:
             port: {{ .Values.webhook.port | default 9443 }}
-          initialDelaySeconds: {{ .Values.controllerManager.probes.liveness.initialDelaySeconds | default 15 }}
-          periodSeconds: {{ .Values.controllerManager.probes.liveness.periodSeconds | default 20 }}
+          initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds | default 15 }}
+          periodSeconds: {{ .Values.probes.liveness.periodSeconds | default 20 }}
         readinessProbe:
           tcpSocket:
             port: {{ .Values.webhook.port | default 9443 }}
-          initialDelaySeconds: {{ .Values.controllerManager.probes.readiness.initialDelaySeconds | default 5 }}
-          periodSeconds: {{ .Values.controllerManager.probes.readiness.periodSeconds | default 10 }}
+          initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds | default 5 }}
+          periodSeconds: {{ .Values.probes.readiness.periodSeconds | default 10 }}
         resources:
-          {{- toYaml .Values.controllerManager.resources | nindent 10 }}
+          {{- toYaml .Values.resources | nindent 10 }}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -99,7 +98,7 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-      terminationGracePeriodSeconds: {{ .Values.controllerManager.terminationGracePeriodSeconds | default 10 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 10 }}
       volumes:
       - name: cert
         secret:
