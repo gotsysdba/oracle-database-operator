@@ -133,7 +133,6 @@ webhook:
 # Required for ADB provisioning/binding. See: set_ocicredentials.sh
 ociCredentials:
   # Option 1: Reference an existing Secret containing OCI credentials
-  # BREAKING CHANGE: Previously named 'configMapName', now uses Secret
   existingSecretName: ""
 
   # Option 2: Provide values to create a Secret (used if existingSecretName is empty)
