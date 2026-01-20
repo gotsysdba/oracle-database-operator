@@ -30,16 +30,18 @@ Create chart name and version as used by the chart label.
 
 {{/*
 Namespace for operator resources
+Defaults to release namespace, can be overridden via .Values.namespace
 */}}
 {{- define "oracle-database-operator.namespace" -}}
-{{- .Values.namespace }}
+{{- default .Release.Namespace .Values.namespace }}
 {{- end }}
 
 {{/*
 Namespace for cert-manager
+Defaults to release namespace, can be overridden via cert-manager.namespace
 */}}
 {{- define "oracle-database-operator.certManagerNamespace" -}}
-{{- index .Values "cert-manager" "namespace" }}
+{{- default .Release.Namespace (index .Values "cert-manager" "namespace") }}
 {{- end }}
 
 {{/*

@@ -2,6 +2,7 @@
 replicas: 3
 
 # Namespace for Oracle Database Operator resources
+# Defaults to the release namespace if not specified
 namespace: "oracle-database-operator-system"
 
 # Image pull secrets for private registries (shared with cert-manager subchart)
@@ -161,6 +162,7 @@ certManagerWaitJob:
 cert-manager:
   enabled: true
   # Namespace for cert-manager (subchart install location and webhook lookup)
+  # Defaults to the release namespace if not specified
   namespace: "cert-manager"
   installCRDs: true
   global:
