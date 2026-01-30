@@ -92,7 +92,7 @@ spec:
           capabilities:
             drop:
             - ALL
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           runAsUser: 1002
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
