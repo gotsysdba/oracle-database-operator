@@ -244,4 +244,4 @@ helm template oraoperator . \
 - The chart creates the cert-manager namespace automatically when using the subchart.
 - A wait job ensures the cert-manager webhook is ready before creating Issuer resources.
 - Use `skipCertManagerCheck=true` for GitOps workflows where cert-manager is installed separately.
-- Health probes use TCP socket checks on the webhook port since the operator doesn't expose HTTP health endpoints.
+- Health probes use HTTP GET requests on the `/metrics` endpoint (port 8080).

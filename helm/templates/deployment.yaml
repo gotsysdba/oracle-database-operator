@@ -75,16 +75,27 @@ spec:
         - containerPort: {{ .Values.webhook.port | default 9443 }}
           name: webhook-server
           protocol: TCP
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
         livenessProbe:
-          tcpSocket:
-            port: {{ .Values.webhook.port | default 9443 }}
+          httpGet:
+            path: /metrics
+            port: 8080
+            scheme: HTTP
           initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds | default 15 }}
           periodSeconds: {{ .Values.probes.liveness.periodSeconds | default 20 }}
+          timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds | default 3 }}
+          failureThreshold: {{ .Values.probes.liveness.failureThreshold | default 3 }}
         readinessProbe:
-          tcpSocket:
-            port: {{ .Values.webhook.port | default 9443 }}
+          httpGet:
+            path: /metrics
+            port: 8080
+            scheme: HTTP
           initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds | default 5 }}
           periodSeconds: {{ .Values.probes.readiness.periodSeconds | default 10 }}
+          timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds | default 3 }}
+          failureThreshold: {{ .Values.probes.readiness.failureThreshold | default 3 }}
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         securityContext:
