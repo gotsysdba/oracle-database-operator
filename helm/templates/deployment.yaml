@@ -4,9 +4,6 @@ kind: Deployment
 metadata:
   name: {{ include "oracle-database-operator.name" . }}-controller-manager
   namespace: {{ include "oracle-database-operator.namespace" . }}
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "2"
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 spec:
