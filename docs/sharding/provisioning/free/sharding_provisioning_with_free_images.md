@@ -1,40 +1,105 @@
-# Example of provisioning Oracle Sharded Database with Oracle AI Database 26ai Free Database and GSM Images
+# Deploy Oracle GDD with System-Managed Sharding using Oracle AI Database 26ai Free Database and GSM Images
 
-**IMPORTANT:** Make sure you have completed the steps for [Prerequsites for Running Oracle Sharding Database Controller](../../README.md#prerequsites-for-running-oracle-sharding-database-controller) before using Oracle Sharding Controller.
+**IMPORTANT:** Make sure you have completed the steps for [Prerequisites for running Oracle Sharding Database Controller](../../README.md#prerequisites-for-running-oracle-sharding-database-controller) before using Oracle Sharding Controller.
 
-The sharded database in this example is deployed with System-Managed Sharding type. In this use case, the database is created automatically using DBCA during the provisioning of the shard databases and the catalog database when the Oracle Sharding topology with System-Managed Sharding is deployed using Oracle Sharding controller. 
+This example deploys an Oracle GDD topology with System-Managed Sharding using Oracle AI Database 26ai Free Database and GSM images.
 
-**NOTE:** In this use case, because DBCA creates the database automatically during the deployment, the time required to create the database is greater than the time it takes when the database is created by cloning from a Database Gold Image.
+This example uses the `sharding_provisioning_with_free_images.yaml` manifest to provision an Oracle GDD deployment with the Oracle Sharding Controller using:
 
-This example uses `sharding_provisioning_with_free_images.yaml` to provision an Oracle Database sharding topology using Oracle Sharding controller with:
-
-* Primary GSM Pods `gsm1` and standby GSM Pod `gsm2`
-* Three Shard Database Pods: `shard1`, `shard2` and `shard3`
-* One Catalog Database Pod: `catalog`
+* Primary GSM pod: `gsm1`
+* Standby GSM pod: `gsm2`
+* Two shard database pods (`shardNum: 2`)
+* One catalog database pod: `catalog`
 * Namespace: `shns`
 
-
 To get the Oracle AI Database 26ai Free Database and GSM Images:
-  * The Oracle AI Database 26ai Free Image used is `container-registry.oracle.com/database/free:latest`. Check [Oracle AI Database Free Get Started](https://www.oracle.com/database/free/get-started/?source=v0-DBFree-ChatCTA-j2032-20240709) for details.
-  * The the Oracle 26ai GSM Image used is `container-registry.oracle.com/database/gsm:latest`. 
-  * To pull the above images from Oracle Container Registry, create a Kubernetes secret named `ocr-reg-cred` in the namespace `shns`. Please refer to [this page](./../container_reg_secret.md) for the details. 
-  * You need to change `dbImage` and `gsmImage` tag with the images you want to use in your enviornment in file `sharding_provisioning_with_free_images.yaml`. 
 
-**IMPORTANT:** Make sure the version of `openssl` in the Oracle Database and Oracle GSM images is compatible with the `openssl` version on the machine where you will run the openssl commands to generated the encrypted password file during the deployment.
-  
-  
+* The Oracle AI Database 26ai Free image used is `container-registry.oracle.com/database/free:latest`. Check [Oracle AI Database Free Get Started](https://www.oracle.com/database/free/get-started/?source=v0-DBFree-ChatCTA-j2032-20240709) for details.
+* The Oracle AI Database 26ai GSM image used is `container-registry.oracle.com/database/gsm:latest`.
+* To pull the above images from Oracle Container Registry, create a Kubernetes secret named `ocr-reg-cred` in the namespace `shns`. Please refer to [this page](./../container_reg_secret.md) for the details.
+* You need to update the `dbImage` and `gsmImage` tag with the images you want to use in your environment in file `sharding_provisioning_with_free_images.yaml`.  
 
-Use the file: [sharding_provisioning_with_free_images.yaml](./sharding_provisioning_with_free_images.yaml) for this use case as below:
+Use the following manifest:
 
-1. Deploy the `sharding_provisioning_with_free_images.yaml` file:
+[sharding_provisioning_with_free_images.yaml](./sharding_provisioning_with_free_images.yaml)
+
+1. Deploy the `sharding_provisioning_with_free_images.yaml` manifest:
+
     ```sh
     kubectl apply -f sharding_provisioning_with_free_images.yaml
     ```
-2. Check the status of the deployment:
-    ```sh
-    # Check the status of the Kubernetes Pods:
-    kubectl get all -n shns
 
-    # Check the logs of a particular pod. For example, to check status of pod "shard1-0":
-    kubectl logs -f pod/shard1-0 -n shns
+2. Check the status of the deployment:
+
+    ```sh
+    kubectl get all -n shns
     ```
+
+3. Monitor the database creation logs for the catalog and shard database pods. For example:
+
+    ```sh
+    # Catalog database pod
+    kubectl logs -f pod/catalog-0 -n shns
+
+    # Shard database pod
+    kubectl logs -f pod/pshard1-0 -n shns
+    ```
+
+    Database creation can take approximately 20 minutes. For the catalog database pod and each shard database pod, wait for the following message, which indicates that the database is ready to use:
+
+    ```text
+    #########################
+    DATABASE IS READY TO USE!
+    #########################
+    ```
+
+    Repeat this check for each shard database pod in the deployment.
+
+4. After the databases are ready, monitor the sharding setup log for the catalog database pod:
+
+    ```sh
+    kubectl exec pod/catalog-0 -n shns -- \
+      /bin/bash -c "tail -f /var/tmp/gdd/oracle_sharding_setup.log"
+    ```
+
+    Wait for the following message, which indicates that the catalog setup is complete:
+
+    ```text
+    ==============================================
+         GSM Catalog Setup Completed
+    ==============================================
+    ```
+
+    Monitor the sharding setup log for each shard database pod. For example, for `pshard1-0`:
+
+    ```sh
+    kubectl exec pod/pshard1-0 -n shns -- \
+      /bin/bash -c "tail -f /var/tmp/gdd/oracle_sharding_setup.log"
+    ```
+
+    Wait for the following message, which indicates that the shard setup is complete:
+
+    ```text
+    ==============================================
+         GSM Shard Setup Completed
+    ==============================================
+    ```
+
+    Repeat this check for each shard database pod in the deployment.
+
+5. Monitor the sharding setup log for each GSM pod. For example, for the primary GSM pod `gsm1-0`:
+
+    ```sh
+    kubectl exec pod/gsm1-0 -n shns -- \
+      /bin/bash -c "tail -f /var/tmp/gdd/oracle_sharding_setup.log"
+    ```
+
+    For each GSM pod, wait for the following message, which indicates that the GSM setup is complete:
+
+    ```text
+    ==============================================
+         GSM Setup Completed
+    ==============================================
+    ```
+
+**NOTE:** Native (Raft) replication requires at least three shards. Oracle AI Database 26ai Free supports a maximum of three shards. For licensing details and feature limitations, see the [Oracle AI Database Licensing Information](https://docs.oracle.com/en/database/oracle/oracle-database/26/dblic/Licensing-Information.html).

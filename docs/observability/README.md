@@ -1,62 +1,95 @@
 # Managing Observability on Kubernetes for Oracle Databases
 
-Oracle Database Operator for Kubernetes (`OraOperator`) includes the
-Observability controller for Oracle Databases and adds the `DatabaseObserver` CRD, which enables users to observe 
-Oracle Databases by scraping database metrics using SQL queries and observe logs in the Database _alert.log_. 
-The controller automates the deployment and maintenance of the [database observability exporter](https://github.com/oracle/oracle-db-appdev-monitoring),
-metrics exporter service and Prometheus ServiceMonitor.
+The Observability controller adds the `DatabaseObserver` CRD, which allows users
+to collect Oracle Database metrics and alert log data and expose telemetry in
+standard OpenTelemetry (OTEL) and Prometheus formats.
 
-The following sections explains the configuration and functionality
-of the controller.
+At the core of this flow is the [Oracle AI Database Metrics Exporter](https://github.com/oracle/oracle-db-appdev-monitoring) (referred to in this document as the exporter), which the controller deploys and maintains together with the exporter Service and the Prometheus ServiceMonitor.
 
-* [Prerequisites](#prerequisites)
-* [The DatabaseObserver Custom Resource Definition](#the-databaseobserver-custom-resource)
-  * [Configuring Database Credentials](#configuration-fields-related-to-managing-database-credentials)
-  * [Configuring Cloud Provider Vaults for Database credentials](#configuration-fields-related-to-vault-usage)
-  * [Configuring the Managed Resources](#configuration-fields-related-to-the-deployment-pod-service-and-servicemonitor-resources)
-  * [Configuring Export of Database Metrics](#configuration-fields-related-to-metrics-export)
-  * [Configuring Export of Database Logs](#configuration-fields-related-to-logs-export)
-  * [Configuring the Exporter Config File](#configuration-fields-related-to-the-exporter-config-file)
+The exporter includes default metrics out of the box, supports custom SQL-based
+metrics defined in YAML or TOML.
 
-* [DatabaseObserver Operations](#databaseobserver-operations)
-  * [Create](#create-resource)
-  * [List](#list-resource)
-  * [Get Status](#get-detailed-status)
-  * [Update](#patch-resource)
-  * [Delete](#delete-resource)
+It can collect from Oracle Databases running inside or outside Kubernetes,
+including single instance, Oracle Real Application Clusters (Oracle RAC), and
+Autonomous Oracle Database deployments.
 
-* [Connecting to the Database](#connecting-to-the-database)
-  * [Default DB Configuration](#default-database-configuration)
-  * [Multiple DB Configuration](#multiple-database-configuration)
+![Observability Overview](./observability_overview.png)
 
-* [Vault Configuration](#database-authentication-with-vaults-in-the-cloud)
-    * [Using OCI Vault](#oci-vault-configuration)
-    * [Using Azure Vault](#azure-vault-configuration)
+At a high level, users create a `DatabaseObserver` resource and the
+Observability controller deploys the required Kubernetes resources, connects to
+target databases, and exposes telemetry in OpenTelemetry (OTEL) and Prometheus
+formats for Prometheus, Grafana, and other observability backends.
 
-* [Setting the Exporter Config File](#defining-an-exporter-config-file)
 
-* [Scraping Metrics](#scraping-metrics)
-  * [Custom Metrics Config](#custom-metrics-config)
-  * [Prometheus Release](#prometheus-release)
-  
-* [Scraping Logs](#scraping-logs)
-  * [Custom Log Location with PersistentVolumes](#custom-log-location-with-persistentvolumes)
-  * [Example Working with Sidecars and Promtail](#working-with-sidecars-to-deploy-promtail)
+See also the [Quick Start](./quickstart.md) for a short end-to-end setup.  
+For OpenShift-specific guidance, see the [OpenShift example](./openshift.md).
 
-  
-* [Customizing Resources](#customizing-resources-and-available-configuration-options)
-    * [Environment Variables and Default Values](#environment-variables-and-default-values)
-    * [Managing Labels](#managing-labels)
-    * [Custom Exporter Image or Version](#custom-environment-variables-arguments-and-commands)
-    * [Security Contexts](#security-contexts)
-    * [Custom Service Ports](#custom-service-ports)
-    * [Custom ServiceMonitor](#custom-servicemonitor-endpoints)
-  
-* [Mandatory Roles and Privileges](#mandatory-roles-and-privileges-requirements-for-observability-controller)
+> Terminology:  
+> `DatabaseObserver` is the Kubernetes custom resource that you create.  
+> The `Oracle AI Database Metrics Exporter` is the deployed metrics and logs component managed by the controller.  
+> The term `exporter` is used in the rest of this document as shorthand for the Oracle AI Database Metrics Exporter.
 
-* [Debugging and troubleshooting](#debugging-and-troubleshooting)
-* [Known Issues](#known-issues)
-* [Resources](#resources)
+- [Managing Observability on Kubernetes for Oracle Databases](#managing-observability-on-kubernetes-for-oracle-databases)
+  - [Architecture](#architecture)
+  - [Prerequisites](#prerequisites)
+  - [The DatabaseObserver Custom Resource](#the-databaseobserver-custom-resource)
+    - [Configuration Fields Related to Managing Database Credentials](#configuration-fields-related-to-managing-database-credentials)
+    - [Configuration Fields Related to Vault Usage](#configuration-fields-related-to-vault-usage)
+    - [Configuration Fields Related to the Deployment, Pod, Service and ServiceMonitor Resources](#configuration-fields-related-to-the-deployment-pod-service-and-servicemonitor-resources)
+    - [Configuration Fields Related to Metrics Export](#configuration-fields-related-to-metrics-export)
+    - [Configuration Fields Related to Logs Export](#configuration-fields-related-to-logs-export)
+    - [Configuration Fields Related to the Exporter Config File](#configuration-fields-related-to-the-exporter-config-file)
+  - [DatabaseObserver Operations](#databaseobserver-operations)
+    - [Create Resource](#create-resource)
+    - [List Resource](#list-resource)
+    - [Get Detailed Status](#get-detailed-status)
+    - [Patch Resource](#patch-resource)
+    - [Delete Resource](#delete-resource)
+  - [Connecting to the Database](#connecting-to-the-database)
+    - [Default Database Configuration](#default-database-configuration)
+    - [Multiple Database Configuration](#multiple-database-configuration)
+      - [Configuring Wallets for Multiple Databases](#configuring-wallets-for-multiple-databases)
+  - [Database Authentication with Vaults in the Cloud](#database-authentication-with-vaults-in-the-cloud)
+    - [OCI Vault Configuration](#oci-vault-configuration)
+    - [Azure Vault Configuration](#azure-vault-configuration)
+  - [Defining an Exporter Config File](#defining-an-exporter-config-file)
+  - [Scraping Metrics](#scraping-metrics)
+    - [Custom Metrics Config](#custom-metrics-config)
+    - [Prometheus Release](#prometheus-release)
+  - [Scraping Logs](#scraping-logs)
+    - [Custom Log Location with PersistentVolumes](#custom-log-location-with-persistentvolumes)
+    - [Working with Sidecars to deploy Promtail](#working-with-sidecars-to-deploy-promtail)
+  - [Customizing Resources and Available Configuration Options](#customizing-resources-and-available-configuration-options)
+    - [Environment Variables and Default Values](#environment-variables-and-default-values)
+    - [Managing Labels](#managing-labels)
+    - [Custom Exporter Image or Version](#custom-exporter-image-or-version)
+    - [Custom Environment Variables, Arguments and Commands](#custom-environment-variables-arguments-and-commands)
+    - [Security Contexts](#security-contexts)
+    - [Custom Service Ports](#custom-service-ports)
+    - [Custom ServiceMonitor Endpoints](#custom-servicemonitor-endpoints)
+  - [Mandatory roles and privileges requirements for Observability Controller](#mandatory-roles-and-privileges-requirements-for-observability-controller)
+  - [Debugging and troubleshooting](#debugging-and-troubleshooting)
+    - [Show the details of the resource](#show-the-details-of-the-resource)
+    - [Check the logs of the pod where the operator deploys](#check-the-logs-of-the-pod-where-the-operator-deploys)
+  - [Known Issues](#known-issues)
+    - [Using the OCI Vault (or Azure Vault) causes an error](#using-the-oci-vault-or-azure-vault-causes-an-error)
+  - [Resources](#resources)
+
+## Architecture
+
+The following diagram shows the detailed observability flow managed by the
+controller:
+
+![Observability Architecture](./observability_architecture.png)
+
+In this model:
+
+1. A `DatabaseObserver` custom resource defines how the exporter connects to
+   one or more target databases.
+2. The Observability controller creates and manages the Kubernetes resources
+   required by the exporter, including the Service and ServiceMonitor.
+3. Prometheus scrapes the metrics endpoint exposed by the exporter.
+4. Grafana visualizes the collected metrics using an Oracle dashboard.
 
 ## Prerequisites
 The `DatabaseObserver` custom resource has the following prerequisites:
@@ -72,20 +105,36 @@ The `DatabaseObserver` custom resource has the following prerequisites:
        helm repo update
        helm upgrade --install prometheus prometheus/kube-prometheus-stack -n prometheus --create-namespace
        ```
+     - Note: Some Prometheus installations require `spec.maximumStartupDurationSeconds`
+       to be set to a value greater than or equal to `60`. If you see an error such as
+       `spec.maximumStartupDurationSeconds: Invalid value: 0`, install the chart with:
+       ```bash
+       helm upgrade --install prometheus prometheus/kube-prometheus-stack \
+         -n prometheus --create-namespace \
+         --set prometheus.prometheusSpec.maximumStartupDurationSeconds=300
+       ```
      - You can check if the ServiceMonitor API exists in your cluster by running the following command:
      ```bash
      kubectl api-resources | grep smon
      ```
+     - OpenShift note: OpenShift monitoring uses a different setup. The quick
+       start in this document does not apply unchanged on OpenShift. See the
+       [OpenShift example](./openshift.md) for a tested example that you can
+       adapt to your own monitoring and RBAC conventions.
 
 2. A preexisting Oracle Database, and the proper database grants and privileges.
 
     - The controller exports metrics through SQL queries that the user can control 
        and specify through the _toml_ files. The necessary access privileges to the tables used in the queries
        are not provided and applied automatically.
+    - Note: Bug `38699234` reports that `V_$DIAG_ALERT_EXT` is not granted
+      through `SELECT_CATALOG_ROLE`, even though `SELECT_CATALOG_ROLE` should
+      include this view. If your monitoring setup needs this view, explicitly
+      grant `SELECT` on `SYS.V_$DIAG_ALERT_EXT` to the monitoring user.
 
 ## The DatabaseObserver Custom Resource
 Oracle Database Operator (__v1.0.0__ or later) includes the Oracle Database Observability controller, which automates
-the deployment and configuration of the Oracle Database exporter and the related resources to make Oracle Databases observable.
+the deployment and configuration of the exporter and the related resources to make Oracle Databases observable.
 The Observability Controller introduces the `databaseobserver` APIs.
 
 To list the available APIs included in the
@@ -97,7 +146,7 @@ kubectl api-resources | grep oracle
 
 Learn about the different and configurable fields available in this release of the DatabaseObserver APIs in the following sections.
 
-> In this release, the controller deploys the Database Observability Exporter ([v2.0.2](https://github.com/oracle/oracle-db-appdev-monitoring/releases/tag/2.0.2)).
+> The controller’s default exporter image is [v2.0.2](https://github.com/oracle/oracle-db-appdev-monitoring/releases/tag/2.0.2). To use exporter 2.4.0 or later, explicitly set `spec.deployment.image` and configure `--config.file`.
 
 
 
@@ -112,9 +161,7 @@ The following fields are available for configuring the exporter to successfully 
 | `spec.database.dbUser.secret`                     | string | Yes         | _db-secret_          |
 | `spec.database.dbPassword.secret`                 | string | Yes         | _db-secret_          |
 | `spec.database.dbConnectionString.secret`         | string | Yes         | _db-secret_          |
-| `spec.database.dbUser.envName`                    | string | No          | _DB_USERNAME_        |
 | `spec.database.dbPassword.envName`                | string | No          | _DB_PASSWORD_        |
-| `spec.database.dbConnectionString.envName`        | string | No          | _DB_CONN_STRING_     |
 | `spec.databases.<key>.dbUser.key`                 | string | No          | _username_           |
 | `spec.databases.<key>.dbPassword.key`             | string | No          | _password_           |
 | `spec.databases.<key>.dbConnectionString.key`     | string | No          | _connection_         |
@@ -133,8 +180,7 @@ The following fields are available for configuring the exporter to successfully 
 These fields enable you to define connection details for a single database, or for multiple databases. For default values, environment variables and default behavior, see [defaults](#environment-variables-and-default-values).
 
 1. `spec.database` - Use to configure the database username, password and connection string. 
-The environment variables set by the controller can be customized through the `envName` field.
-Both `envName` and `key` fields are optional.
+The `key` field is optional.
 
 
 2. `spec.databases` - Use to configure multiple database credentials. The keys are used as a prefix for environment
@@ -193,9 +239,9 @@ The following fields below are available for configuring the controller-managed 
 |-----------------------------------------|--------|:----------|-----------------------------------------------------------------------|
 | `spec.deployment.securityContext`       | object | No  | -                                                                     |
 | `spec.deployment.podSecurityContext`    | object | No  | -                                                                     |
-| `spec.deployment.env`                   | map    | No  | _DB_ROLE: "SYSDBA"_                                                   |
-| `spec.deployment.image`                 | string | No  | _container-registry.oracle.com/database/observability-exporter:1.3.0_ |
-| `spec.deployment.args`                  | array  | No  | _[ "--log.level=info" ]_                                              |
+| `spec.deployment.env`                   | map    | No  |                                                    |
+| `spec.deployment.image`                 | string | No  | _container-registry.oracle.com/database/observability-exporter:2.4.2_ |
+| `spec.deployment.args`                  | array  | No  | _[ "--config.file=/config/exporter-config.yaml" ]_                    |
 | `spec.deployment.commands`              | array  | No  | _[ "/oracledb_exporter" ]_                                            |
 | `spec.deployment.labels`                | map    | No  | _environment: dev_                                                    |
 | `spec.deployment.podTemplate.labels`    | map    | No  | _environment: dev_                                                    |
@@ -203,7 +249,6 @@ The following fields below are available for configuring the controller-managed 
 | `spec.service.labels`                   | map    | No  | _environment: dev_                                                    |                                                                   
 | `spec.serviceMonitor.labels`            | map    | Yes       | _release: prometheus_                                                 |
 | `spec.serviceMonitor.endpoints`         | array  | No  | -                                                                     |
-| `spec.serviceMonitor.namespaceSelector` | -      | No  | -                                                                     |
 | `spec.replicas`                         | number | No  | _1_                                                                   |
 | `spec.inheritLabels`                    | array  | No  | _- environment: dev_<br/>- app.kubernetes.io/name: observer           |
 
@@ -217,6 +262,7 @@ the `securityContext` and `podSecurityContext` are available.
 
 
 3. `spec.serviceMonitor` - Use to configure the serviceMonitor resource.
+Only documented ServiceMonitor fields are supported.
 
 > Note: It is an essential requirement that you set the Prometheus label inside `serviceMonitor.labels`. Ensure that the label set is included in the serviceMonitorSelector field of your Prometheus CR. 
 
@@ -234,7 +280,7 @@ The following fields are available for configuring the metrics exported from the
 
 | Attribute                       | Type   | Required?   | Example                 |
 |---------------------------------|--------|:------------|-------------------------|
-| `spec.metrics.configMap[].key`  | string | No          | _config.toml_           ||                                              |        |             |                                                                       |
+| `spec.metrics.configMap[].key`  | string | No          | _config.toml_           |
 | `spec.metrics.configMap[].name` | string | Conditional | _custom-metrics-config_ |
 
 These fields enable you to define configMap sources for metrics. For default values, environment variables and default behavior, see [defaults](#environment-variables-and-default-values).
@@ -247,13 +293,13 @@ The following fields are available for configuring how the `alert.log` is export
 
 | Attribute                                        | Type   | Required?   | Example      |
 |--------------------------------------------------|--------|:------------|--------------|
-| `spc.log.destination`                            | string | No          | _alert.log_  |
-| `spc.log.filename`                               | string | No          | _/log_       |
-| `spc.log.disable`                                | bool   | No          | true         |
-| `spc.log.volume.name`                            | string | No          | _log-volume_ |                                                                |
-| `spc.log.volume.persistentVolumeClaim.claimName` | string | Conditional | _my-pvc_     |
-| `spc.sidecar.containers[]`                       | array  | Conditional | -            |
-| `spc.sidecar.volumes[]`                          | array  | Conditional | -            |
+| `spec.log.destination`                            | string | No          | _/log_       |
+| `spec.log.filename`                               | string | No          | _alert.log_  |
+| `spec.log.disable`                                | bool   | No          | true         |
+| `spec.log.volume.name`                            | string | No          | _log-volume_ |
+| `spec.log.volume.persistentVolumeClaim.claimName` | string | Conditional | _my-pvc_     |
+| `spec.sidecar.containers[]`                       | array  | Conditional | -            |
+| `spec.sidecar.volumes[]`                          | array  | Conditional | -            |
 
 These fields enable you to define log details and sidecar resources. For default values, environment variables and default behavior, see [defaults](#environment-variables-and-default-values).
 1. `spec.sidecar.containers` - Use to configure an array of containers as a sidecar to the observability 
@@ -282,7 +328,7 @@ The following fields are available for configuring the exporter through a config
 
 | Attribute                           | Type   | Required?   | Example           |
 |-------------------------------------|--------|:------------|-------------------|
-| `spec.exporterConfig.configMapName` | string | Conditional | _exporter-config_ |
+| `spec.exporterConfig.configMap.name` | string | Conditional | _exporter-config_ |
 | `spec.exporterConfig.mountPath`     | string | No          | _/config_         |
 
 These fields enable you to define the exporter config-file. For default values, environment variables and default behavior, see [defaults](#environment-variables-and-default-values).
@@ -290,7 +336,7 @@ These fields enable you to define the exporter config-file. For default values, 
 1. `spec.exporterConfig` - Use to configure the exporter with a config file containing database, log and metrics details. You can use
 the `mountPath` field to define a custom location for the config file.
 
-> Note: The CONFIG_FILE environment variable or the --config.file args must be set to the desired location of the config file.
+> Note: A config file must be selected with `--config.file` or `CONFIG_FILE`.
 
 To learn more about configuring the config-file for the exporter, see [Defining an Exporter Config File](#defining-an-exporter-config-file).
 
@@ -318,9 +364,7 @@ You can also choose to create the wallet secret from a local directory containin
 kubectl create secret generic db-wallet --from-file=<wallet_dir>
 ```
 
-3. Update the `databaseObserver` manifest with the resources that you have created. You can use the example _minimal_ manifest 
-inside [config/samples/observability/v4](../../config/samples/observability/v4/databaseobserver_minimal.yaml) to specify and create your databaseObserver object with a 
-YAML file.
+3. Create the exporter ConfigMap as described in [Defining an Exporter Config File](#defining-an-exporter-config-file), then update the `databaseObserver` manifest with the resources that you have created.
 
 ```YAML
 # example
@@ -342,8 +386,14 @@ spec:
       key: "connection"
       secret: db-secret
      
-  wallet:
-    secret: db-wallet
+  deployment:
+    args:
+      - "--config.file=/config/exporter-config.yaml"
+  exporterConfig:
+    mountPath: "/config"
+    configMap:
+      key: exporter-config.yaml
+      name: exporter-config-file
 
   serviceMonitor:
     labels:
@@ -368,7 +418,12 @@ To obtain a quick status, use the following command as an example:
 > We will use this name as an example.
 
 ```sh
-$ kubectl get databaseobserver obs-sample
+kubectl get databaseobserver obs-sample
+```
+
+Example output:
+
+```text
 NAME         METRICSCONFIG   STATUS   VERSION
 obs-sample   DEFAULT          READY    2.0.2
 ```
@@ -390,7 +445,7 @@ The Observability controller currently supports updates for most of the fields i
 of patching the `databaseObserver` resource:
 
 ```bash
-kubectl --type=merge -p '{"spec":{"exporter":{"image":"container-registry.oracle.com/database/observability-exporter:2.0.1"}}}' patch databaseobserver obs-sample
+kubectl --type=merge -p '{"spec":{"deployment":{"image":"container-registry.oracle.com/database/observability-exporter:2.4.2"}}}' patch databaseobserver obs-sample
 ```
 
 ### Delete Resource
@@ -405,7 +460,7 @@ kubectl delete databaseobserver obs-sample
 
 
 ### Default Database Configuration
-To configure the observability exporter to export from a single Oracle Database, use the field `spec.database`
+To configure the exporter to export from a single Oracle Database, use the field `spec.database`
 to define the details of the database. If the wallet is applicable, `spec.wallet` allows you to define a secret containing the wallet
 and where the wallet is to be mounted as a volume. 
 
@@ -430,7 +485,7 @@ spec:
   #...
 ```
 Alternatively, the default database can be defined and configured through the exporter config-file. In this case, the config-file must be defined, and the
-credentials are set only through the exporter YAML file as kubernetes secrets. As an example, using the same secret with the same keys, you can define the relevant secrets
+credentials remain in Kubernetes Secrets. The controller injects the referenced values into the exporter container, and the exporter configuration file references them. As an example, using the same secret with the same keys, you can define the relevant secrets
 in the following YAML file:
 
 ```yaml
@@ -447,8 +502,8 @@ spec:
     mountPath: /oracle/wallet
     
   deployment:
-    env:
-      CONFIG_FILE: "/oracle/exporter/config.yaml"
+    args:
+      - "--config.file=/config/config.yaml"
   
   exporterConfig:
     configMap:
@@ -478,7 +533,7 @@ kubectl create cm config-file --from-file=config.yaml
 ```
 
 ### Multiple Database Configuration
-To configure the observability exporter to export metrics and logs from multiple Oracle Databases, __instead__ of `spec.database`, you must use an exporter config file, 
+To configure the exporter to export metrics and logs from multiple Oracle Databases, __instead__ of `spec.database`, you must use an exporter config file,
 configure the _databaseobserver_ YAML file with a combined wallet (if applicable), and then use the
 `spec.databases` field . The field `spec.databases` is a map with keys used for naming environment variables
 and identifying groups of credentials.
@@ -515,7 +570,8 @@ spec:
   deployment:
     env:
       TNS_ADMIN: /example_dbwallet/combined
-      CONFIG_FILE: "/config/config.yaml"
+    args:
+      - "--config.file=/config/config.yaml"
 
   exporterConfig:
     configMap:
@@ -548,7 +604,7 @@ To create the configMap, run the following command:
 kubectl create cm config-file --from-file=config.yaml
 ```
 
-To learn more about the config file, you can consult the [official documentations of the exporter](https://github.com/oracle/oracle-db-appdev-monitoring?tab=readme-ov-file#standalone-binary).
+To learn more about the config file, you can consult the [official documentation for Oracle AI Database Metrics Exporter](https://github.com/oracle/oracle-db-appdev-monitoring?tab=readme-ov-file#standalone-binary).
 
 #### Configuring Wallets for Multiple Databases
 In configuring multiple databases where each connection requires a database wallet, a combined wallet is required and can be configured through the databaseobserver YAML file. To
@@ -559,7 +615,7 @@ create a combined wallet:
 
 2. Set the wallet directory for the aliases inside security, with the following snippet pointing to each database wallet location: `(MY_WALLET_DIRECTORY=/example_dbwallet/db01)`, for example:
 
-```
+```text
 ...)(security=(MY_WALLET_DIRECTORY=)(ssl_server_dn_match=...)))
 ```
 
@@ -573,6 +629,11 @@ create a combined wallet:
 The resulting wallet directory structure should look similar to the following, where wallet files for each database are in separate directories:
 ```bash
 #
+```
+
+Example output:
+
+```text
 example_dbwallet
 ├── combined
 │   ├── sqlnet.ora
@@ -595,7 +656,7 @@ specific database wallet files (.sso, .p12, .pem) under `.spec.wallet.additional
 
 > Note: When setting the name under `spec.wallets.additional[].name`, you must provide a unique name other than `creds`,  because this is the default volume name.
 
-To learn more about this requirement, you can consult the [official documentation of the exporter](https://github.com/oracle/oracle-db-appdev-monitoring?tab=readme-ov-file#configuring-connections-for-multiple-databases-using-oracle-database-wallets).
+To learn more about this requirement, you can consult the [official documentation for Oracle AI Database Metrics Exporter](https://github.com/oracle/oracle-db-appdev-monitoring?tab=readme-ov-file#configuring-connections-for-multiple-databases-using-oracle-database-wallets).
 
 
 ## Database Authentication with Vaults in the Cloud
@@ -614,7 +675,7 @@ When you configure the Vault, you must provide the following:
   - Kubernetes Secret containing the [OCI CLI Config file](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliconfigure.htm)
   - Kubernetes Secret containing the user's OCI CLI Private Key
 
-The observability exporter needs to authenticate requests to retrieve the database password from the OCI Vault. When configuring API Key authentication, 
+The exporter needs to authenticate requests to retrieve the database password from the OCI Vault. When configuring API Key authentication,
 the OCI CLI config file and the __DEFAULT profile is used__. 
 > Note: The exporter uses the DEFAULT profile.
 
@@ -690,9 +751,8 @@ kubectl create configmap azure-cred \
 ```
 
 ## Defining an Exporter Config File
-A YAML configuration file for the exporter can be provided by setting the `--config.file=`
-command-line argument. It is recommended to use the configuration file from the 2.0.0 release of the exporter
-and onwards.
+Exporter 2.4.0 and later require a YAML configuration file. Set the `--config.file=`
+command-line argument to the path of that file.
 
 To configure the exporter config file, set the path to the YAML file 
 under `spec.deployment.args` from which to read the config from. The configMap
@@ -704,7 +764,7 @@ spec:
   # ...
   
   deployment:
-    args: "--config.file=/config/exporter-config.yaml"
+    args: ["--config.file=/config/exporter-config.yaml"]
 
   exporterConfig:
     mountPath: "/config"
@@ -717,7 +777,7 @@ Create the _exporter-config-file_ configMap. For example, using the following ex
 ```yaml
 # exporter-config.yaml
 
-# Example Oracle Database Metrics Exporter Configuration file.
+# Example databaseObserver configuration file.
 # Environment variables of the form ${VAR_NAME} will be expanded.
 databases:
   default:
@@ -726,7 +786,7 @@ databases:
     ## Database password
     password: ${DB_PASSWORD}
     ## Database connection url
-    url: localhost:1521/freepdb1
+    url: ${DB_CONNECT_STRING}
 
     ## Metrics query timeout for this database, in seconds
     queryTimeout: 5
@@ -742,10 +802,8 @@ For more information on the configuration fields, see the following [examples](h
 kubectl create cm exporter-config-file --from-file=exporter-config.yaml
 ```
 
-Note that in the above configuration file, the environment variables `DB_USERNAME` and `DB_PASSWORD` will be expanded
-by the exporter. These environment variables
-are one of the default environment variables set by the DatabaseObserver controller. In the DatabaseObserver YAML file, you
-can set the following details:
+Note that in the above configuration file, the environment variables `DB_USERNAME`, `DB_PASSWORD`, and `DB_CONNECT_STRING` will be expanded
+by the exporter. The DatabaseObserver controller sets them from the referenced Kubernetes Secret. Configure the Secret references in the `DatabaseObserver` YAML as follows:
 
 ```yaml
 spec:
@@ -754,13 +812,18 @@ spec:
       secret: db-secret
     dbPassword:
       secret: db-secret
+    dbConnectionString:
+      secret: db-secret
     
   # ...
 ```
 
 ## Scraping Metrics
-The `databaseObserver` resource deploys the Observability exporter container. This container connects to an Oracle Database and
-scrapes metrics using SQL queries. By default, the exporter provides standard metrics, which are listed in the [official GitHub page of the Observability Exporter](https://github.com/oracle/oracle-db-appdev-monitoring?tab=readme-ov-file#standard-metrics).
+The `databaseObserver` resource defines the desired configuration for the
+exporter container deployed by the controller. This container
+connects to an Oracle Database and scrapes metrics using SQL queries. By
+default, the exporter provides standard metrics, which are listed in the
+[official GitHub page for Oracle AI Database Metrics Exporter](https://github.com/oracle/oracle-db-appdev-monitoring?tab=readme-ov-file#standard-metrics).
 
 To define custom metrics in Oracle Database for scraping, a TOML file that lists your custom queries and properties is required.
 For example, the code snippet that follows shows how you can define custom metrics:
@@ -771,7 +834,7 @@ request = "SELECT 1 as value_1, 2 as value_2 FROM DUAL"
 metricsdesc = { value_1 = "Simple example returning always 1.", value_2 = "Same but returning always 2." }
 ```
 This file produces the following entries:
-```
+```text
 # HELP oracledb_test_value_1 Simple example returning always 1.
 # TYPE oracledb_test_value_1 gauge
 oracledb_test_value_1 1
@@ -825,7 +888,7 @@ must match the `spec.serviceMonitorSelector` field in your Prometheus configurat
 ```
 
 ## Scraping Logs
-Currently, the observability exporter provides the `alert.log` from Oracle Database, which provides important information about errors and exceptions during database operations. 
+Currently, the exporter provides the `alert.log` from Oracle Database, which provides important information about errors and exceptions during database operations.
 
 By default, the logs are stored in the pod filesystem, inside `/log/alert.log`. Note that the log can also be placed in a custom path with a custom filename, You can also place a volume available to multiple pods with the use of `PersistentVolumes` by specifying a `persistentVolumeClaim`. 
 Because the logs are stored in a file, scraping the logs must be pushed to a log aggregation system, such as _Loki_. 
@@ -872,13 +935,13 @@ If `spec.log.volume.persistentVolumeClaim.claimName` is not specified, then an `
 ```
 
 ### Working with Sidecars to deploy Promtail
-The fields `spec.sidecars` and `spec.sidecarVolumes` provide the ability to deploy container images as a sidecar container
-alongside the `observability-exporter` container.
+The fields `spec.sidecar.containers` and `spec.sidecar.volumes` provide the ability to deploy container images as a sidecar container
+alongside the exporter container.
 
-You can specify container images to deploy inside `spec.sidecars` as you would normally define a container in a deployment. The field
-`spec.sidecars` is of an array of containers (`[]corev1.Container`).
+You can specify container images to deploy inside `spec.sidecar.containers` as you would normally define a container in a deployment. The field
+`spec.sidecar.containers` is an array of containers (`[]corev1.Container`).
 
-For example, to deploy a Grafana Promtail image, you can specify the container and its details as an element to the array, `spec.sidecars`.
+For example, to deploy a Grafana Promtail image, you can specify the container and its details as an element of the `spec.sidecar.containers` array.
 ```yaml
   sidecar:
     containers:
@@ -941,7 +1004,9 @@ kubectl create cm promtail-config-file --from-file=config.yaml
 ## Customizing Resources and Available Configuration Options
 
 ### Environment Variables and Default Values
-The following environment variables are set and provided by the controller by default:
+The following environment variables are set and provided by the controller by default.
+
+Exporter 2.4.0 and later require `--config.file`. Controller-provided environment variables, such as `DB_USERNAME`, `DB_PASSWORD`, and `DB_CONNECT_STRING`, are expanded when referenced from that configuration file.
 
 | Environment Variable       | Related Field                           | Default                                   | Details                                                                                                         |
 |----------------------------|-----------------------------------------|-------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
@@ -987,7 +1052,7 @@ The following default values or behavior is set:
 | Exporter config file location for mounting  | `exporterConfig.mountPath`                   | /config                                                             |         |
 | OCI Config file location for mounting       | `ociConfig.mountPath`                        | /.oci                                                               |         |
 
-Overwriting environment variables can be managed by configuring the fields `spec.deployment.envs` or `spec.deployment.args` or through the [exporter config file](#defining-an-exporter-config-file):
+Overwriting environment variables can be managed by configuring the fields `spec.deployment.env` or `spec.deployment.args` or through the [exporter config file](#defining-an-exporter-config-file):
 ```yaml
 spec:
   deployment:
@@ -996,13 +1061,6 @@ spec:
     env:
       TNS_ADMIN: /path/to/new/location
 ```
-These variables and configuration values can be set explicitly, variables such as:
-- DB_ROLE
-- DATABASE_MAXIDLECONNS
-- DATABASE_MAXOPENCONNS
-- DATABASE_POOLINCREMENT
-- DATABASE_POOLMAXCONNECTIONS
-- DATABASE_POOLMINCONNECTIONS
 
 ### Managing Labels
 
@@ -1046,27 +1104,25 @@ spec:
 ```
 
 ### Custom Exporter Image or Version
-The field `spec.deployment.image` is provided to enable you to make use of a newer or older version of the [observability-exporter](https://github.com/oracle/oracle-db-appdev-monitoring)
+The field `spec.deployment.image` is provided to enable you to make use of a newer or older version of the [Oracle AI Database Metrics Exporter](https://github.com/oracle/oracle-db-appdev-monitoring)
 container image.
 
 ```yaml
 spec:
   deployment:
-    image: "container-registry.oracle.com/database/observability-exporter:2.0.1"
+    image: "container-registry.oracle.com/database/observability-exporter:2.4.2"
 ```
 
 ### Custom Environment Variables, Arguments and Commands
-The fields `spec.deployment.env`, `spec.deployment.args` and `spec.deployment.commands` are provided for adding custom environment variables, arguments (`args`) and commands to the containers. 
-Any custom environment variable will overwrite environment variables set by the controller.
+The fields `spec.deployment.env`, `spec.deployment.args`, and `spec.deployment.commands` allow custom environment variables, arguments, and commands.
+For exporter 2.4.0 and later, configure exporter settings in the YAML configuration file. Environment variables can be used for container configuration or referenced from that file.
+An environment variable set in `spec.deployment.env` overrides a controller-provided variable with the same name.
 
 ```yaml
 spec:
   deployment:
     env:
-      DB_ROLE: "SYSDBA"
       TNS_ADMIN: "/path/to/wallet"
-    args:
-      - "--log.level=info"
     commands:
       - "/oracledb_exporter"
 ```
@@ -1106,15 +1162,29 @@ spec:
 ```
 
 ### Custom ServiceMonitor Endpoints
-The field `spec.serviceMonitor.endpoints` is provided for providing custom endpoints for the ServiceMonitor resource created by the `databaseObserver`:
+
+The field `spec.serviceMonitor.endpoints` lets you customize selected endpoint fields used in the `ServiceMonitor` created by the `databaseObserver`.
+
+When `spec.serviceMonitor.endpoints` is provided, the operator uses exactly the endpoints in this list and does not add the default `metrics` endpoint automatically.
+
+The following endpoint fields are supported:
+
+- `port`
+- `path`
+- `scheme`
+- `params`
+- `interval`
+- `scrapeTimeout`
+- `relabelings`
+- `metricRelabelings`
+
+DatabaseObserver does not support arbitrary ServiceMonitor fields. Fields such as `namespaceSelector`, `bearerTokenSecret`, `basicAuth`, `authorization`, `oauth2`, `tlsConfig`, proxy settings, `targetPort`, `honorLabels`, and `honorTimestamps` are not accepted.
 
 ```yaml
 spec:
   serviceMonitor:
     endpoints:
-      - bearerTokenSecret:
-          key: ''
-        interval: 20s
+      - interval: 20s
         port: metrics
         relabelings:
           - action: replace
@@ -1122,6 +1192,15 @@ spec:
               - __meta_kubernetes_endpoints_label_app
             targetLabel: instance
 ```
+
+> Note: When you define custom endpoints, you are responsible for specifying valid values for the supported endpoint fields, including the correct `port`.
+
+If `spec.serviceMonitor.endpoints` is omitted, the operator creates a default endpoint equivalent to:
+```yaml
+endpoints:
+  - port: metrics
+    interval: 20s
+```    
 
 ## Mandatory roles and privileges requirements for Observability Controller
 
@@ -1194,5 +1273,3 @@ When a new version of the exporter is released with the fix, set the field `depl
 For further information about the Oracle Databases logs and metrics Exporter container image, 
 consult the official repository documentations:
 - [GitHub - Unified Observability for Oracle Database Project](https://github.com/oracle/oracle-db-appdev-monitoring)
-
-
