@@ -33,6 +33,7 @@ subjects:
   namespace: {{ include "oracle-database-operator.namespace" . }}
 {{- if eq .Values.scope.mode "namespace" }}
 {{- range .Values.scope.watchNamespaces }}
+{{- if ne . (include "oracle-database-operator.namespace" $) }}
 ---
 # Manager RoleBinding for namespace-scoped deployment in {{ . }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -50,5 +51,6 @@ subjects:
 - kind: ServiceAccount
   name: {{ include "oracle-database-operator.serviceAccountName" $ }}
   namespace: {{ include "oracle-database-operator.namespace" $ }}
+{{- end }}
 {{- end }}
 {{- end }}

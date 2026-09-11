@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import re
 import shutil
 import subprocess
@@ -12,7 +13,8 @@ CHART = Path(__file__).resolve().parents[1]
 
 def render(*args):
     return subprocess.check_output([
-        'helm', 'template', 'oraoperator', str(CHART), *args,
+        'helm', 'template', 'oraoperator', str(CHART),
+        '--namespace', 'oracle-database-operator-system', *args,
     ], text=True)
 
 
@@ -63,10 +65,9 @@ class ChartTests(unittest.TestCase):
         rendered = render()
         self.assertEqual(rendered.count('\nkind: Issuer\n'), 1)
         self.assertEqual(rendered.count('\nkind: Certificate\n'), 2)
-        self.assertNotIn('\nkind: Job\n', rendered)
+        self.assertEqual(rendered.count('\nkind: Job\n'), 1)
         self.assertNotIn('cert-bootstrap', rendered)
         self.assertNotIn('certificate_bootstrap.py', rendered)
-        self.assertNotIn('helm.sh/hook', rendered)
         self.assertNotIn('/charts/cert-manager/', rendered)
 
     def test_admission_webhooks_are_persistent(self):
@@ -105,22 +106,131 @@ class ChartTests(unittest.TestCase):
                     self.assertEqual(header, headers[path.stem])
 
     def test_incompatible_operator_overrides_fail(self):
-        for setting in ('namespace=custom', 'nameOverride=custom'):
+        for setting, message in (
+            ('namespace=custom', 'use --namespace'),
+            ('nameOverride=custom', 'bundled CRD webhook references'),
+        ):
             with self.subTest(setting=setting):
                 result = subprocess.run([
                     'helm', 'template', 'oraoperator', str(CHART), '--set', setting,
                 ], capture_output=True, text=True)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn('bundled CRD webhook references', result.stderr)
+                self.assertIn(message, result.stderr)
 
-    def test_release_and_watch_namespaces_preserve_operator_namespace(self):
-        rendered = render('--namespace', 'platform', '--set', 'namespace=',
+    def test_release_and_watch_namespaces_are_independent(self):
+        rendered = render('--namespace', 'platform',
                           '--set', 'scope.mode=namespace',
                           '--set', 'scope.watchNamespaces={databases}')
-        self.assertIn('namespace: oracle-database-operator-system\n', rendered)
+        self.assertIn('namespace: platform\n', rendered)
+        self.assertNotIn('oracle-database-operator-system', rendered)
         self.assertIn('namespace: databases\n', rendered)
         self.assertIn('name: WATCH_NAMESPACE\n          value: "databases"', rendered)
-        self.assertIn('kind: Namespace\n', rendered)
+        self.assertNotIn('kind: Namespace\n', rendered)
+
+    def test_custom_namespace_certificates_and_webhooks(self):
+        rendered = render('--namespace', 'platform')
+        for service in ('webhook', 'controller-manager-metrics'):
+            self.assertIn(f'oracle-database-operator-{service}-service.platform.svc\n', rendered)
+            self.assertIn(f'oracle-database-operator-{service}-service.platform.svc.cluster.local\n', rendered)
+        self.assertIn('cert-manager.io/inject-ca-from: platform/oracle-database-operator-serving-cert', rendered)
+        self.assertNotIn('oracle-database-operator-system', rendered)
+
+    def test_crd_configuration_uses_operator_scheduling(self):
+        settings = {
+            'nodeSelector': {'workload': 'oracle'},
+            'tolerations': [{'key': 'dedicated', 'operator': 'Equal',
+                             'value': 'oracle', 'effect': 'NoSchedule'}],
+            'affinity': {'nodeAffinity': {'requiredDuringSchedulingIgnoredDuringExecution': {
+                'nodeSelectorTerms': [{'matchExpressions': [
+                    {'key': 'workload', 'operator': 'In', 'values': ['oracle']},
+                ]}],
+            }}},
+        }
+        args = []
+        for key, value in settings.items():
+            args.extend(['--set-json', f'{key}={json.dumps(value)}'])
+        deployment = render('--show-only', 'templates/deployment.yaml', *args)
+        job = render('--show-only', 'templates/crd-configuration.yaml', *args)
+        for key in settings:
+            pattern = rf'^      {key}:\n(?:^        .*\n)+'
+            expected = re.search(pattern, deployment, re.MULTILINE)
+            self.assertIsNotNone(expected, key)
+            self.assertIn(expected.group(), job)
+        defaults = render('--show-only', 'templates/crd-configuration.yaml')
+        for key in settings:
+            self.assertNotIn(f'      {key}:', defaults)
+
+    def test_crd_configuration_patches_only_references(self):
+        rendered = render('--namespace', 'platform', '--show-only',
+                          'templates/crd-configuration.yaml')
+        self.assertIn('helm.sh/hook: post-install,post-upgrade', rendered)
+        self.assertIn('helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded', rendered)
+        self.assertIn('verbs: [get, patch]', rendered)
+        self.assertNotIn('/bin/sh', rendered)
+        # A request-timeout override prevents kubectl's in-cluster fallback.
+        self.assertNotIn('--request-timeout', rendered)
+        self.assertIn('activeDeadlineSeconds: 180', rendered)
+        blocks = re.findall(r'^        args:\n((?:^        - .*\n)+)', rendered, re.MULTILINE)
+        self.assertEqual(len(blocks), 2)
+        commands = []
+        for block in blocks:
+            args = [line.removeprefix('        - ') for line in block.splitlines()]
+            args = [json.loads(arg) if arg.startswith('"') else arg for arg in args]
+            self.assertEqual(args[0], 'patch')
+            self.assertIn('--type=merge', args)
+            commands.append((args[1:-3], json.loads(args[-1])))
+        names = {f'customresourcedefinition/{path.stem}' for path in (CHART / 'crds').glob('*.yaml')}
+        self.assertEqual(set(commands[0][0]), names)
+        self.assertEqual(commands[0][1], {'metadata': {'annotations': {
+            'cert-manager.io/inject-ca-from': 'platform/oracle-database-operator-serving-cert',
+        }}})
+        conversion_names = {f'customresourcedefinition/{path.stem}'
+                            for path in (CHART / 'crds').glob('*.yaml')
+                            if 'strategy: Webhook' in path.read_text()}
+        self.assertEqual(set(commands[1][0]), conversion_names)
+        self.assertEqual(commands[1][1], {'spec': {'conversion': {'webhook': {
+            'clientConfig': {'service': {
+                'name': 'oracle-database-operator-webhook-service', 'namespace': 'platform',
+            }},
+        }}}})
+
+        if shutil.which('kubectl'):
+            for path in (CHART / 'crds').glob('*.yaml'):
+                original = json.loads(subprocess.check_output([
+                    'kubectl', 'patch', '--local', '--type=merge', '--patch', '{}',
+                    '-f', str(path), '-o', 'json',
+                ], text=True))
+                patched = original
+                for targets, patch in commands:
+                    if f'customresourcedefinition/{path.stem}' in targets:
+                        patched = json.loads(subprocess.check_output([
+                            'kubectl', 'patch', '--local', '-f', '-', '--type=merge',
+                            '--patch', json.dumps(patch), '-o', 'json',
+                        ], input=json.dumps(patched), text=True))
+                original['metadata']['annotations']['cert-manager.io/inject-ca-from'] = (
+                    'platform/oracle-database-operator-serving-cert')
+                if f'customresourcedefinition/{path.stem}' in conversion_names:
+                    original['spec']['conversion']['webhook']['clientConfig']['service']['namespace'] = 'platform'
+                self.assertEqual(patched, original, path.name)
+
+    def test_watching_release_namespace_has_one_manager_binding(self):
+        rendered = render('--namespace', 'platform', '--set', 'scope.mode=namespace',
+                          '--set', 'scope.watchNamespaces={platform,databases}',
+                          '--show-only', 'templates/rolebinding.yaml')
+        self.assertEqual(rendered.count('name: oracle-database-operator-manager-rolebinding\n'), 2)
+
+    def test_default_release_namespace(self):
+        for args in ([], ['--namespace', 'default'], ['--is-upgrade'],
+                     ['--is-upgrade', '--set', 'namespace=oracle-database-operator-system']):
+            with self.subTest(args=args):
+                rendered = subprocess.check_output([
+                    'helm', 'template', 'oraoperator', str(CHART), *args,
+                ], text=True)
+                self.assertIn('namespace: oracle-database-operator-system\n', rendered)
+                self.assertNotIn('namespace: default\n', rendered)
+                self.assertIn('kind: Namespace\nmetadata:\n  name: oracle-database-operator-system\n', rendered)
+                self.assertIn('helm.sh/resource-policy: keep', rendered)
+                self.assertIn('oracle-database-operator-webhook-service.oracle-database-operator-system.svc\n', rendered)
 
     def test_package_and_umbrella_expose_native_crds(self):
         with tempfile.TemporaryDirectory() as directory:

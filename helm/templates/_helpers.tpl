@@ -32,13 +32,17 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
-Operator namespace matches the bundled CRD webhook references.
+Operator installation namespace.
 */}}
 {{- define "oracle-database-operator.namespace" -}}
 {{- if and .Values.namespace (ne .Values.namespace "oracle-database-operator-system") -}}
-{{- fail "namespace must be oracle-database-operator-system to match the bundled CRD webhook references" -}}
+{{- fail "use --namespace to set the operator installation namespace" -}}
 {{- end -}}
+{{- if eq .Release.Namespace "default" -}}
 oracle-database-operator-system
+{{- else -}}
+{{- .Release.Namespace -}}
+{{- end -}}
 {{- end }}
 
 {{/*

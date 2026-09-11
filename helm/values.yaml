@@ -1,8 +1,12 @@
 # Default values for oracle-database-operator
 replicas: 3
 
-# namespace must match the bundled CRD webhook references.
-namespace: "oracle-database-operator-system"
+# Configure the installation namespace with Helm's --namespace option.
+
+# Patches native CRD webhook references after installation and upgrade.
+crdConfiguration:
+  image: registry.k8s.io/kubectl:v1.35.0
+  imagePullPolicy: IfNotPresent
 
 # Image pull secrets for private registries
 imagePullSecrets: []
