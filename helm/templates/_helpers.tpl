@@ -2,7 +2,10 @@
 Expand the name of the chart.
 */}}
 {{- define "oracle-database-operator.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- if and .Values.nameOverride (ne .Values.nameOverride "oracle-database-operator") -}}
+{{- fail "nameOverride must be oracle-database-operator to match the bundled CRD webhook references" -}}
+{{- end -}}
+oracle-database-operator
 {{- end }}
 
 {{/*
@@ -29,45 +32,13 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
-Namespace for operator resources
-Defaults to release namespace, can be overridden via .Values.namespace
+Operator namespace matches the bundled CRD webhook references.
 */}}
 {{- define "oracle-database-operator.namespace" -}}
-{{- default .Release.Namespace .Values.namespace }}
-{{- end }}
-
-{{/*
-Namespace for cert-manager
-Defaults to release namespace, can be overridden via cert-manager.namespace
-*/}}
-{{- define "oracle-database-operator.certManagerNamespace" -}}
-{{- default .Release.Namespace (index .Values "cert-manager" "namespace") }}
-{{- end }}
-
-{{/*
-cert-manager webhook service name
-When subchart: uses release name prefix
-When external: uses externalWebhookServiceName
-*/}}
-{{- define "oracle-database-operator.certManagerWebhookService" -}}
-{{- if index .Values "cert-manager" "enabled" -}}
-{{- printf "%s-cert-manager-webhook" .Release.Name -}}
-{{- else -}}
-{{- .Values.certManagerWaitJob.externalWebhookServiceName | default "cert-manager-webhook" -}}
+{{- if and .Values.namespace (ne .Values.namespace "oracle-database-operator-system") -}}
+{{- fail "namespace must be oracle-database-operator-system to match the bundled CRD webhook references" -}}
 {{- end -}}
-{{- end }}
-
-{{/*
-cert-manager ValidatingWebhookConfiguration name
-When subchart: uses release name prefix
-When external: uses default cert-manager-webhook
-*/}}
-{{- define "oracle-database-operator.certManagerWebhookConfig" -}}
-{{- if index .Values "cert-manager" "enabled" -}}
-{{- printf "%s-cert-manager-webhook" .Release.Name -}}
-{{- else -}}
-cert-manager-webhook
-{{- end -}}
+oracle-database-operator-system
 {{- end }}
 
 {{/*
@@ -141,6 +112,13 @@ Certificate name
 {{- end }}
 
 {{/*
+Metrics certificate name
+*/}}
+{{- define "oracle-database-operator.metricsCertificateName" -}}
+{{- printf "%s-metrics-certs" (include "oracle-database-operator.name" .) }}
+{{- end }}
+
+{{/*
 Issuer name
 */}}
 {{- define "oracle-database-operator.issuerName" -}}
@@ -194,16 +172,41 @@ Each entry: name, path, apiGroup, apiVersion, resources, operations (optional, d
   apiGroup: database.oracle.com
   apiVersion: v1alpha1
   resources: oraclerestdataservices
-- name: msingleinstancedatabase.kb.io
-  path: /mutate-database-oracle-com-v1alpha1-singleinstancedatabase
+- name: moraclerestdataservicev4.kb.io
+  path: /mutate-database-oracle-com-v4-oraclerestdataservice
   apiGroup: database.oracle.com
-  apiVersion: v1alpha1
+  apiVersion: v4
+  resources: oraclerestdataservices
+- name: mracdatabase.kb.io
+  path: /mutate-database-oracle-com-v4-racdatabase
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: racdatabases
+- name: msingleinstancedatabasev4.kb.io
+  path: /mutate-database-oracle-com-v4-singleinstancedatabase
+  apiGroup: database.oracle.com
+  apiVersion: v4
   resources: singleinstancedatabases
-- name: mdatabaseobserver.kb.io
+- name: mdatabaseobserverv1.kb.io
+  path: /mutate-observability-oracle-com-v1-databaseobserver
+  apiGroup: observability.oracle.com
+  apiVersion: v1
+  resources: databaseobservers
+- name: mdatabaseobserverv4.kb.io
   path: /mutate-observability-oracle-com-v4-databaseobserver
   apiGroup: observability.oracle.com
   apiVersion: v4
   resources: databaseobservers
+- name: mprivateai-v4.kb.io
+  path: /mutate-privateai-oracle-com-v4-privateai
+  apiGroup: privateai.oracle.com
+  apiVersion: v4
+  resources: privateais
+- name: mtrafficmanager-v4.kb.io
+  path: /mutate-network-oracle-com-v4-trafficmanager
+  apiGroup: network.oracle.com
+  apiVersion: v4
+  resources: trafficmanagers
 {{- end }}
 
 {{/*
@@ -284,20 +287,51 @@ Each entry: name, path, apiGroup, apiVersion, resources, operations (optional, d
   apiGroup: database.oracle.com
   apiVersion: v1alpha1
   resources: dataguardbrokers
+- name: vdataguardbrokerv4.kb.io
+  path: /validate-database-oracle-com-v4-dataguardbroker
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: dataguardbrokers
 - name: voraclerestdataservice.kb.io
   path: /validate-database-oracle-com-v1alpha1-oraclerestdataservice
   apiGroup: database.oracle.com
   apiVersion: v1alpha1
   resources: oraclerestdataservices
-- name: vsingleinstancedatabase.kb.io
-  path: /validate-database-oracle-com-v1alpha1-singleinstancedatabase
+- name: voraclerestdataservicev4.kb.io
+  path: /validate-database-oracle-com-v4-oraclerestdataservice
   apiGroup: database.oracle.com
-  apiVersion: v1alpha1
+  apiVersion: v4
+  resources: oraclerestdataservices
+- name: vsingleinstancedatabasev4.kb.io
+  path: /validate-database-oracle-com-v4-singleinstancedatabase
+  apiGroup: database.oracle.com
+  apiVersion: v4
   resources: singleinstancedatabases
   operations: [CREATE, UPDATE, DELETE]
-- name: vdatabaseobserver.kb.io
+- name: vracdatabase.kb.io
+  path: /validate-database-oracle-com-v4-racdatabase
+  apiGroup: database.oracle.com
+  apiVersion: v4
+  resources: racdatabases
+  operations: [CREATE, UPDATE, DELETE]
+- name: vdatabaseobserverv1.kb.io
+  path: /validate-observability-oracle-com-v1-databaseobserver
+  apiGroup: observability.oracle.com
+  apiVersion: v1
+  resources: databaseobservers
+- name: vdatabaseobserverv4.kb.io
   path: /validate-observability-oracle-com-v4-databaseobserver
   apiGroup: observability.oracle.com
   apiVersion: v4
   resources: databaseobservers
+- name: vprivateai-v4.kb.io
+  path: /validate-privateai-oracle-com-v4-privateai
+  apiGroup: privateai.oracle.com
+  apiVersion: v4
+  resources: privateais
+- name: vtrafficmanager-v4.kb.io
+  path: /validate-network-oracle-com-v4-trafficmanager
+  apiGroup: network.oracle.com
+  apiVersion: v4
+  resources: trafficmanagers
 {{- end }}

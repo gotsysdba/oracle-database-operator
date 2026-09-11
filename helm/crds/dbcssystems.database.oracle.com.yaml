@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: oracle-database-operator-system/oracle-database-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: dbcssystems.database.oracle.com
 spec:
   group: database.oracle.com
@@ -375,9 +375,6 @@ spec:
                       type: string
                     timeStarted:
                       type: string
-                  required:
-                  - operationId
-                  - operationType
                   type: object
                 type: array
             required:
@@ -882,4 +879,3 @@ spec:
     storage: true
     subresources:
       status: {}
-

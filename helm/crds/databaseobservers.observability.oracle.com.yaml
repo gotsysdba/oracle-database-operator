@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: oracle-database-operator-system/oracle-database-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: databaseobservers.observability.oracle.com
 spec:
   group: observability.oracle.com
@@ -28,6 +28,9 @@ spec:
     - jsonPath: .status.version
       name: Version
       type: string
+    deprecated: true
+    deprecationWarning: observability.oracle.com/v1 DatabaseObserver is deprecated;
+      use observability.oracle.com/v4.
     name: v1
     schema:
       openAPIV3Schema:
@@ -526,7 +529,6 @@ spec:
                                 type: string
                               sourceLabels:
                                 items:
-                                  pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
                                   type: string
                                 type: array
                               targetLabel:
@@ -785,7 +787,6 @@ spec:
                                 type: string
                               sourceLabels:
                                 items:
-                                  pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
                                   type: string
                                 type: array
                               targetLabel:
@@ -796,6 +797,8 @@ spec:
                           enum:
                           - http
                           - https
+                          - HTTP
+                          - HTTPS
                           type: string
                         scrapeTimeout:
                           pattern: ^(0|(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?(([0-9]+)ms)?)$
@@ -2254,6 +2257,10 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      userAnnotations:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -2531,6 +2538,9 @@ spec:
     - jsonPath: .status.version
       name: Version
       type: string
+    deprecated: true
+    deprecationWarning: observability.oracle.com/v1alpha1 DatabaseObserver is deprecated;
+      use observability.oracle.com/v4.
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -3029,7 +3039,6 @@ spec:
                                 type: string
                               sourceLabels:
                                 items:
-                                  pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
                                   type: string
                                 type: array
                               targetLabel:
@@ -3288,7 +3297,6 @@ spec:
                                 type: string
                               sourceLabels:
                                 items:
-                                  pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
                                   type: string
                                 type: array
                               targetLabel:
@@ -3299,6 +3307,8 @@ spec:
                           enum:
                           - http
                           - https
+                          - HTTP
+                          - HTTPS
                           type: string
                         scrapeTimeout:
                           pattern: ^(0|(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?(([0-9]+)ms)?)$
@@ -4757,6 +4767,10 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      userAnnotations:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -5046,6 +5060,9 @@ spec:
             type: object
           spec:
             properties:
+              automountServiceAccountToken:
+                default: false
+                type: boolean
               azureConfig:
                 properties:
                   configMap:
@@ -5532,7 +5549,6 @@ spec:
                                 type: string
                               sourceLabels:
                                 items:
-                                  pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
                                   type: string
                                 type: array
                               targetLabel:
@@ -5791,7 +5807,6 @@ spec:
                                 type: string
                               sourceLabels:
                                 items:
-                                  pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
                                   type: string
                                 type: array
                               targetLabel:
@@ -5802,6 +5817,8 @@ spec:
                           enum:
                           - http
                           - https
+                          - HTTP
+                          - HTTPS
                           type: string
                         scrapeTimeout:
                           pattern: ^(0|(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?(([0-9]+)ms)?)$
@@ -7260,6 +7277,10 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      userAnnotations:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -7527,4 +7548,3 @@ spec:
     storage: true
     subresources:
       status: {}
-

@@ -55,6 +55,7 @@ spec:
         command:
         - /manager
         args:
+        - --metrics-addr=:8443
         {{- if .Values.leaderElection }}
         - --enable-leader-election
         {{- end }}
@@ -72,27 +73,9 @@ spec:
         - containerPort: {{ .Values.webhook.port | default 9443 }}
           name: webhook-server
           protocol: TCP
-        - containerPort: 8080
-          name: metrics
+        - containerPort: 8443
+          name: https
           protocol: TCP
-        livenessProbe:
-          httpGet:
-            path: /metrics
-            port: 8080
-            scheme: HTTP
-          initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds | default 15 }}
-          periodSeconds: {{ .Values.probes.liveness.periodSeconds | default 20 }}
-          timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds | default 3 }}
-          failureThreshold: {{ .Values.probes.liveness.failureThreshold | default 3 }}
-        readinessProbe:
-          httpGet:
-            path: /metrics
-            port: 8080
-            scheme: HTTP
-          initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds | default 5 }}
-          periodSeconds: {{ .Values.probes.readiness.periodSeconds | default 10 }}
-          timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds | default 3 }}
-          failureThreshold: {{ .Values.probes.readiness.failureThreshold | default 3 }}
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         securityContext:
@@ -103,11 +86,18 @@ spec:
           readOnlyRootFilesystem: false
           runAsUser: 1002
         volumeMounts:
+        - mountPath: /metrics-certs
+          name: metrics-certs
+          readOnly: true
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 10 }}
       volumes:
+      - name: metrics-certs
+        secret:
+          defaultMode: 420
+          secretName: metrics-server-cert
       - name: cert
         secret:
           defaultMode: 420

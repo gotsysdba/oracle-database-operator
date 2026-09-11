@@ -6,73 +6,49 @@ This Helm chart installs the Oracle Database Operator for Kubernetes.
 
 - Kubernetes 1.21+
 - Helm 3.7+
+- A separately managed, healthy cert-manager installation, including its CRDs and webhook
 
-## cert-manager Installation Options
-
-This chart requires cert-manager for webhook certificates. Four deployment scenarios are supported:
-
-| Use-Case | cert-manager Install | Namespace | Example File |
-|----------|---------------------|-----------|--------------|
-| 1 | Standalone (external) | `cert-manager` | [standalone-cert-manager-default-ns.yaml](examples/standalone-cert-manager-default-ns.yaml) |
-| 2 | Standalone (external) | Custom | [standalone-cert-manager-custom-ns.yaml](examples/standalone-cert-manager-custom-ns.yaml) |
-| 3 | Subchart (bundled) | `cert-manager` | [subchart-cert-manager-default-ns.yaml](examples/subchart-cert-manager-default-ns.yaml) |
-| 4 | Subchart (bundled) | Custom | [subchart-cert-manager-custom-ns.yaml](examples/subchart-cert-manager-custom-ns.yaml) |
-
-### Use-Case 1: Standalone cert-manager in "cert-manager" namespace
-
-Use this when cert-manager is already installed or managed separately.
+## Install
 
 ```bash
-# Pre-requisite: Install cert-manager
-helm repo add jetstack https://charts.jetstack.io
-helm upgrade --install cert-manager jetstack/cert-manager \
-  --namespace cert-manager --create-namespace \
-  --set installCRDs=true
-
-# Install operator
-helm upgrade --install oraoperator . --set cert-manager.enabled=false
-```
-
-### Use-Case 2: Standalone cert-manager in custom namespace
-
-Use this when cert-manager is installed in a non-default namespace.
-
-```bash
-# Pre-requisite: Install cert-manager in custom namespace
-helm repo add jetstack https://charts.jetstack.io
-helm upgrade --install cert-manager jetstack/cert-manager \
-  --namespace my-cert-manager --create-namespace \
-  --set installCRDs=true
-
-# Install operator
-helm upgrade --install oraoperator . \
-  --set cert-manager.enabled=false \
-  --set cert-manager.namespace=my-cert-manager
-```
-
-### Use-Case 3: Subchart cert-manager in "cert-manager" namespace (default)
-
-Use this for a simple all-in-one installation.
-
-```bash
-# Update dependencies first
-helm dependency update .
-
-# Install operator (cert-manager installed automatically)
 helm upgrade --install oraoperator .
 ```
 
-### Use-Case 4: Subchart cert-manager in custom namespace
+The chart manages a self-signed Issuer and Certificate for the operator's webhook.
+cert-manager issues the TLS Secret and injects the webhook CA bundle.
 
-Use this when you want the bundled cert-manager in a custom namespace.
+The operator uses `oracle-database-operator-system` and the service names in the
+repository's supplied manifests. These names also appear in the static CRDs.
+`scope.watchNamespaces` configures the database namespaces the operator watches.
 
-```bash
-# Update dependencies first
-helm dependency update .
+If installation fails because cert-manager is missing or unhealthy, resolve the
+prerequisite and rerun the Helm command. Helm wait and rollback options retain
+their standard behavior.
 
-# Install operator
-helm upgrade --install oraoperator . --set cert-manager.namespace=my-cert-manager
-```
+Database resources require registered Oracle CRDs and usable operator webhooks.
+An umbrella chart must account for both before creating database resources.
+
+## CRD lifecycle
+
+CRDs are packaged in `crds/`, following [Helm's native CRD installation
+pattern](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/).
+Helm registers them before processing ordinary resources, including when this
+chart is an umbrella dependency. Use `--skip-crds` when CRDs are managed separately.
+
+Helm skips existing CRDs and retains native CRDs on uninstall and rollback.
+Review and apply CRD schema updates separately before upgrading the operator;
+`helm upgrade` does not update their definitions. Preserve stored API versions
+and conversion settings when updating existing CRDs.
+
+**Existing releases with templated CRDs require the
+[retention transition](CRD-MIGRATION.md) before upgrading to this layout.**
+This also applies to the Autonomous Database CRDs managed by earlier chart versions.
+
+CRD registration establishes the API; operator admission becomes usable after
+certificate issuance, CA injection, and webhook startup. For a reliable first
+deployment, install the operator and verify its webhooks before installing the
+chart containing database resources. `helm template` tests rendering, not API
+discovery or admission readiness.
 
 ## Uninstall
 
@@ -80,29 +56,35 @@ helm upgrade --install oraoperator . --set cert-manager.namespace=my-cert-manage
 helm uninstall oraoperator
 ```
 
+### Full cleanup
+
+The chart provides no `values.yaml` flag to delete native CRDs. Their removal is
+an explicit administrator action because they are cluster-wide and may be used
+by other releases.
+
+1. Delete the intended database custom resources while the operator is running,
+   and wait for their cleanup and finalizers to complete.
+2. Uninstall the operator release.
+3. After confirming no other installation uses these CRDs, run from this chart's
+   `helm/` directory:
+
+   ```bash
+   kubectl delete -f crds/
+   ```
+
+**Deleting these CRDs removes all remaining instances across every namespace.**
+It does not guarantee cleanup of external databases or retained storage; review
+the relevant controller's deletion policy and clean up retained assets separately.
+Retaining CRDs also does not protect custom resources when their namespace or
+owning workload release is deleted.
+
 ## Configuration
-
-### cert-manager Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `cert-manager.enabled` | Install cert-manager as a subchart | `true` |
-| `cert-manager.namespace` | Namespace for cert-manager | `cert-manager` |
-| `cert-manager.installCRDs` | Install cert-manager CRDs | `true` |
-| `certManagerWaitJob.enabled` | Wait for cert-manager webhook before creating Issuer | `true` |
-| `certManagerWaitJob.image.repository` | Image repository for wait job | `registry.k8s.io/kubectl` |
-| `certManagerWaitJob.image.tag` | Image tag for wait job | `v1.28.0` |
-| `certManagerWaitJob.image.pullPolicy` | Image pull policy for wait job | `IfNotPresent` |
-| `certManagerWaitJob.maxAttempts` | Max retry attempts for webhook readiness | `60` |
-| `certManagerWaitJob.sleepSeconds` | Sleep duration between retries | `5` |
-| `certManagerWaitJob.resources` | Resource limits for wait job | `{}` |
-| `certManagerWaitJob.externalWebhookServiceName` | Webhook service name (when `cert-manager.enabled=false`) | `cert-manager-webhook` |
 
 ### General Settings
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `namespace` | Namespace for Oracle Database Operator resources | `oracle-database-operator-system` |
+| `namespace` | Fixed operator namespace matching bundled CRDs | `oracle-database-operator-system` |
 | `imagePullSecrets` | Image pull secrets for private registries | `[]` |
 
 ### Scope Settings
@@ -119,17 +101,13 @@ helm uninstall oraoperator
 |-----------|-------------|---------|
 | `replicas` | Number of replicas | `3` |
 | `image.repository` | Image repository | `container-registry.oracle.com/database/operator` |
-| `image.tag` | Image tag | `2.0` |
+| `image.tag` | Image tag | `2.2.0` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `resources.limits.cpu` | CPU limit | `400m` |
 | `resources.limits.memory` | Memory limit | `400Mi` |
 | `resources.requests.cpu` | CPU request | `400m` |
 | `resources.requests.memory` | Memory request | `400Mi` |
 | `leaderElection` | Enable leader election | `true` |
-| `probes.liveness.initialDelaySeconds` | Liveness probe initial delay | `15` |
-| `probes.liveness.periodSeconds` | Liveness probe period | `20` |
-| `probes.readiness.initialDelaySeconds` | Readiness probe initial delay | `5` |
-| `probes.readiness.periodSeconds` | Readiness probe period | `10` |
 | `pdb.enabled` | Enable PodDisruptionBudget (when replicas > 1) | `true` |
 | `pdb.minAvailable` | Minimum available pods | `1` |
 | `pdb.maxUnavailable` | Maximum unavailable pods (alternative to minAvailable) | - |
@@ -238,10 +216,3 @@ helm template oraoperator . \
   --set 'scope.watchNamespaces={default,my-app-ns}' \
   > oracle-database-operator-namespace-scoped.yaml
 ```
-
-## Notes
-
-- The chart creates the cert-manager namespace automatically when using the subchart.
-- A wait job ensures the cert-manager webhook is ready before creating Issuer resources.
-- Use `skipCertManagerCheck=true` for GitOps workflows where cert-manager is installed separately.
-- Health probes use HTTP GET requests on the `/metrics` endpoint (port 8080).

@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: oracle-database-operator-system/oracle-database-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: lrpdbs.database.oracle.com
 spec:
   group: database.oracle.com
@@ -133,8 +133,10 @@ spec:
               alterSystem:
                 type: string
               alterSystemParameter:
+                maxLength: 20
                 type: string
               alterSystemValue:
+                maxLength: 4000
                 type: string
               asClone:
                 type: boolean
@@ -167,65 +169,19 @@ spec:
                 - NOCOPY
                 - MOVE
                 type: string
-              debug:
-                type: integer
               dropAction:
                 enum:
                 - INCLUDING
                 - KEEP
                 type: string
               fileNameConversions:
+                maxLength: 513
                 type: string
               getScript:
                 default: false
                 type: boolean
               imperativeLrpdbDeletion:
                 type: boolean
-              lrpdbTlsCat:
-                properties:
-                  secret:
-                    properties:
-                      key:
-                        type: string
-                      secretName:
-                        type: string
-                    required:
-                    - key
-                    - secretName
-                    type: object
-                required:
-                - secret
-                type: object
-              lrpdbTlsCrt:
-                properties:
-                  secret:
-                    properties:
-                      key:
-                        type: string
-                      secretName:
-                        type: string
-                    required:
-                    - key
-                    - secretName
-                    type: object
-                required:
-                - secret
-                type: object
-              lrpdbTlsKey:
-                properties:
-                  secret:
-                    properties:
-                      key:
-                        type: string
-                      secretName:
-                        type: string
-                    required:
-                    - key
-                    - secretName
-                    type: object
-                required:
-                - secret
-                type: object
               modifyOption:
                 enum:
                 - IMMEDIATE
@@ -237,7 +193,15 @@ spec:
               modifyOption2:
                 default: NONE
                 type: string
+              monitorinitparameter:
+                type: boolean
               parameterScope:
+                type: string
+              passwordProtection:
+                default: NATIVE
+                enum:
+                - NATIVE
+                - OPENSSL3
                 type: string
               pdbName:
                 type: string
@@ -253,16 +217,21 @@ spec:
                 - RESET
                 - NONE
                 type: string
+              pdbappuser:
+                type: string
               pdbconfigmap:
                 type: string
               plsqlexemode:
                 type: integer
-              reststate:
+              resetstate:
                 type: integer
+              resetstrstate:
+                type: string
               reuseTempFile:
                 default: true
                 type: boolean
               sourceFileNameConversions:
+                maxLength: 513
                 type: string
               sparseClonePath:
                 type: string
@@ -308,41 +277,16 @@ spec:
                 type: string
               totalSize:
                 type: string
+              tracelevel:
+                type: integer
               unlimitedStorage:
                 default: true
                 type: boolean
-              webServerPwd:
-                properties:
-                  secret:
-                    properties:
-                      key:
-                        type: string
-                      secretName:
-                        type: string
-                    required:
-                    - key
-                    - secretName
-                    type: object
-                required:
-                - secret
-                type: object
-              webServerUser:
-                properties:
-                  secret:
-                    properties:
-                      key:
-                        type: string
-                      secretName:
-                        type: string
-                    required:
-                    - key
-                    - secretName
-                    type: object
-                required:
-                - secret
-                type: object
               xmlFileName:
+                maxLength: 513
                 type: string
+            required:
+            - passwordProtection
             type: object
           status:
             properties:
@@ -388,4 +332,3 @@ spec:
     storage: true
     subresources:
       status: {}
-
