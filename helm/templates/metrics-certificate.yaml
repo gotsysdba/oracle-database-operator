@@ -6,6 +6,9 @@ metadata:
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 spec:
+  subject:
+    organizations:
+    - {{ include "oracle-database-operator.name" . }}
   dnsNames:
   - {{ include "oracle-database-operator.metricsServiceName" . }}.{{ include "oracle-database-operator.namespace" . }}.svc
   - {{ include "oracle-database-operator.metricsServiceName" . }}.{{ include "oracle-database-operator.namespace" . }}.svc.cluster.local

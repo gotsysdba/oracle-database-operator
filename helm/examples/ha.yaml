@@ -1,0 +1,14 @@
+# Three webhook replicas; reconciliation uses one elected leader.
+replicas: 3
+leaderElection: true
+pdb:
+  minAvailable: 2
+# Match the release name used at installation.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: oracle-database-operator
+        app.kubernetes.io/instance: oraoperator

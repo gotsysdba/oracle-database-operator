@@ -7,9 +7,9 @@ metadata:
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 spec:
-  {{- if .Values.pdb.minAvailable }}
+  {{- if ne .Values.pdb.minAvailable nil }}
   minAvailable: {{ .Values.pdb.minAvailable }}
-  {{- else if .Values.pdb.maxUnavailable }}
+  {{- else if ne .Values.pdb.maxUnavailable nil }}
   maxUnavailable: {{ .Values.pdb.maxUnavailable }}
   {{- else }}
   minAvailable: 1

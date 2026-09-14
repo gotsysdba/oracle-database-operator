@@ -1,0 +1,7 @@
+scope:
+  mode: namespace
+  watchNamespaces:
+    - databases
+rbac:
+  clusterResources: true
+  nodeAccess: false

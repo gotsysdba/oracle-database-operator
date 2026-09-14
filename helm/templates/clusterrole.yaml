@@ -1,7 +1,8 @@
+{{- if .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "oracle-database-operator.name" . }}-manager-role
+  name: {{ include "oracle-database-operator.clusterName" . }}-manager-role
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 rules:
@@ -12,9 +13,7 @@ rules:
   - configmaps
   - endpoints
   - events
-  - namespaces
   - persistentvolumeclaims
-  - persistentvolumes
   - pods
   - pods/exec
   - pods/log
@@ -83,16 +82,6 @@ rules:
   - patch
   - update
   - watch
-# Coordination API group for leader election
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - create
-  - get
-  - list
-  - update
 # Oracle Database CRDs
 - apiGroups:
   - database.oracle.com
@@ -267,20 +256,11 @@ rules:
   - get
   - patch
   - update
-# Storage resources
-- apiGroups:
-  - storage.k8s.io
-  resources:
-  - storageclasses
-  verbs:
-  - get
-  - list
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "oracle-database-operator.name" . }}-metrics-reader
+  name: {{ include "oracle-database-operator.clusterName" . }}-metrics-reader
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 rules:
@@ -292,7 +272,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "oracle-database-operator.name" . }}-proxy-role
+  name: {{ include "oracle-database-operator.clusterName" . }}-proxy-role
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 rules:
@@ -308,3 +288,4 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+{{- end }}

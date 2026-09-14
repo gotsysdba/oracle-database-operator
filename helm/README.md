@@ -1,237 +1,287 @@
 # Oracle Database Operator Helm Chart
 
-This Helm chart installs the Oracle Database Operator for Kubernetes.
-
-## Prerequisites
-
-- Kubernetes 1.21+
-- Helm 3.7+
-- A separately managed, healthy cert-manager installation, including its CRDs and webhook
+Installs the Oracle Database Operator in the selected operator namespace, alongside its
+dedicated ServiceAccount and cert-manager certificates. Multiple releases can
+manage separate sets of database namespaces in the same cluster.
 
 ## Install
 
+Prerequisites:
+
+- Kubernetes 1.36 or 1.37.
+- Helm 3.7+ or Helm 4.
+- A healthy, **separately managed cert-manager** installation with its CRDs and cainjector.
+
+Run from the repository root:
+
 ```bash
-helm upgrade --install oraoperator . --namespace my-oracle-operator --create-namespace
+helm upgrade --install oraoperator ./helm \
+  --namespace oracle-database-operator-system --create-namespace --wait --timeout 5m
 ```
 
-The chart manages a self-signed Issuer and Certificate for the operator's webhook.
-cert-manager issues the TLS Secret and injects the webhook CA bundle.
+The operator uses the Helm release namespace, including `default`, unless
+`namespaceOverride` selects another existing namespace. Pre-create referenced
+Secrets and existing ServiceAccounts in the operator namespace. Watched database
+namespaces must also exist before installation.
 
-The operator defaults to `oracle-database-operator-system` when the Helm release
-namespace is `default`, including when `--namespace` is omitted in the default
-Kubernetes context. The chart creates and retains that operator namespace.
-Select another installation namespace with `--namespace my-oracle-operator`.
-Create referenced Secrets and custom ServiceAccounts in the operator namespace.
-`scope.watchNamespaces` configures the database namespaces the operator watches.
+The chart supports Kubernetes 1.36–1.37 and pins its configuration Job to kubectl 1.36.3.
+This keeps the Job within the [kubectl version-skew policy](https://kubernetes.io/releases/version-skew-policy/#kubectl).
+Validate the selected operator image with the cluster test below before promoting
+it to production. Kubernetes compatibility beyond this target requires validation
+with both the operator and hook images.
 
-This chart supports one operator installation per cluster.
+The operator serves admission on port 9443. Application health endpoints remain
+an operator backlog item. Verify admission after installation; Deployment readiness
+and the configuration Job's completion alone do not establish webhook readiness.
 
-If installation fails because cert-manager is missing or unhealthy, resolve the
-prerequisite and rerun the Helm command. Helm wait and rollback options retain
-their standard behavior.
+## Configuration
 
-Database resources require registered Oracle CRDs and usable operator webhooks.
-An umbrella chart must account for both before creating database resources.
+Use [values.yaml](values.yaml) for defaults and [values.schema.json](values.schema.json)
+for accepted values. Unsupported keys fail validation.
+
+| Setting | Behavior |
+|---|---|
+| `namespaceOverride` | Operator namespace; empty uses the Helm release namespace |
+| `replicas` | Defaults to 3; multiple replicas require leader election |
+| `leaderElection` | Explicitly passed to the manager; defaults to `true` |
+| `image.registry`, `image.repository`, `image.tag`, `image.digest` | Registry host (optional port) and repository path; empty tag uses `Chart.appVersion`; digest takes precedence |
+| `image.pullPolicy`, `imagePullSecrets` | Image retrieval settings; pull secrets also apply to the hook |
+| `scope.mode`, `scope.watchNamespaces` | `cluster`, or `namespace` with a unique nonempty namespace list |
+| `serviceAccount.create`, `.name`, `.annotations` | Create a dedicated account, or use an explicitly named existing account |
+| `rbac.create` | Create all chart RBAC, including the configuration Job's permissions |
+| `rbac.clusterResources` | PV management and Namespace/StorageClass reads; defaults to `true` |
+| `rbac.nodeAccess` | Node list/watch access for NodePort services; defaults to `false` |
+| `resources` | Manager requests and limits |
+| `pdb.enabled`, `.minAvailable`, `.maxUnavailable` | Budget for multiple replicas; choose at most one availability field |
+| `podAnnotations` | Annotations on manager pods |
+| `podSecurityContext`, `securityContext` | Pod and manager-container security contexts |
+| `nodeSelector`, `tolerations`, `affinity` | Scheduling for manager and configuration Job |
+| `topologySpreadConstraints` | Manager pod distribution; selectors should identify this release |
+| `terminationGracePeriodSeconds` | Defaults to 10; explicit zero is preserved |
+| `extraEnv` | Additional manager environment variables; `scope` owns `WATCH_NAMESPACE` |
+| `webhook.failurePolicy`, `.timeoutSeconds` | Admission policy and timeout of 1–30 seconds |
+| `webhook.certificateSecretName` | TLS Secret issued by cert-manager and mounted into the manager |
+| `crdConfiguration.enabled` | Configure CRD references after installation and upgrade; defaults to `true` |
+| `crdConfiguration.image`, `.imagePullPolicy` | Complete kubectl image reference, including optional digest |
+| `crdConfiguration.resources` | Requests and limits for both hook containers |
+| `crdConfiguration.serviceAccount.create`, `.name` | Independent hook account; existing accounts require an explicit name |
+
+The default container runs as UID 1002, drops capabilities, and disables privilege
+escalation. Kubernetes merges nested value overrides with chart defaults; remove
+individual inherited fields with `null` when the target security policy requires it.
+
+### Namespace scope and permissions
+
+```bash
+helm upgrade --install oraoperator ./helm \
+  --namespace oracle-database-operator-system --create-namespace \
+  -f helm/examples/namespace.yaml
+```
+
+Namespace mode binds the manager role in each watched namespace. Leader election
+uses a separate Role in the operator namespace. Admission webhooks select the
+same watched namespaces. Cluster-resource permissions use an independent
+ClusterRoleBinding in both modes. Set `rbac.clusterResources=false`
+when database features requiring PV management or StorageClass/Namespace reads
+are unused or their permissions are managed externally.
+
+For externally managed RBAC, provision the required accounts and permissions,
+then use [external-rbac.yaml](examples/external-rbac.yaml). Render with
+`rbac.create=true` to inspect the roles and bindings to provision. The hook's
+ServiceAccount and permissions are separate from the operator's account.
+
+### Multiple releases in one cluster
+
+Install each release in a separate operator namespace and configure disjoint
+`scope.watchNamespaces` lists. Separate installation namespaces isolate the
+operator's leader-election leases; cluster-scoped RBAC and admission configuration
+names include the release identity.
+
+CRDs are shared across the cluster, and each CRD has one
+[conversion-webhook destination](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/#webhook-conversion).
+Choose one release to manage these references with
+`crdConfiguration.enabled=true`. Additional releases use `--skip-crds` and
+`crdConfiguration.enabled=false`:
+
+```bash
+kubectl create namespace databases-a
+kubectl create namespace databases-b
+
+helm upgrade --install oraoperator ./helm \
+  --namespace oracle-database-operator-system --create-namespace --wait \
+  --set scope.mode=namespace --set 'scope.watchNamespaces={databases-a}'
+
+helm upgrade --install oraoperator ./helm \
+  --namespace oracle-database-operator-team-b --create-namespace --wait \
+  --skip-crds --set crdConfiguration.enabled=false \
+  --set scope.mode=namespace --set 'scope.watchNamespaces={databases-b}'
+```
+
+All releases must use operator versions compatible with the shared CRD schemas
+and conversion provider. Keep the conversion-providing release available for
+every namespace using those CRDs. Before removing it, transfer CRD configuration
+to a surviving release and verify conversion. A cluster-scoped release watches
+every namespace, so use namespace scope for independent operators.
+
+### Availability and sizing
+
+Defaults reserve 1.2 CPUs and 1200Mi memory across three replicas. One elected
+leader reconciles resources; each replica serves webhooks. Empty `affinity`
+applies a soft preference for separate nodes.
+
+- [small.yaml](examples/small.yaml): one replica and a lower CPU request.
+- [ha.yaml](examples/ha.yaml): three replicas, a two-pod minimum, and zone spreading.
+
+Measure memory and CPU use for the number and types of databases managed. These
+examples are starting points; the single-replica profile has a webhook outage
+during replacement or node failure.
+
+PDB settings accept nonnegative integers or percentages, including zero. Both
+availability fields default to `null`, which selects `minAvailable: 1`:
+
+```bash
+helm upgrade --install oraoperator ./helm --namespace oracle-database-operator-system \
+  --set pdb.maxUnavailable=0
+```
+
+### Oracle Cloud Infrastructure credentials
+
+Set `ociCredentials` to create OCI API-key credentials with the chart. Each entry
+creates a ConfigMap and a private-key Secret in the database resource's namespace.
+Namespaces must already exist and, in namespace mode, be in `scope.watchNamespaces`.
+The default empty list leaves credential provisioning to your existing tooling.
+
+Save your OCI profile fields in `oci-values.yaml`:
+
+```yaml
+ociCredentials:
+  - namespace: databases
+    configMapName: oci-cred
+    secretName: oci-privatekey
+    tenancy: ocid1.tenancy.oc1..example
+    user: ocid1.user.oc1..example
+    fingerprint: "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00"
+    region: uk-london-1
+```
+
+Supply the corresponding private-key file when installing or upgrading:
+
+```bash
+helm upgrade --install oraoperator ./helm --namespace oracle-database-operator-system \
+  --create-namespace -f helm/examples/namespace.yaml -f oci-values.yaml \
+  --set-file "ociCredentials[0].privateKey=$HOME/.oci/oci_api_key.pem"
+```
+
+This provisions the resources created by `set_ocicredentials.sh`; profile fields
+are supplied through Helm values. `configMapName` defaults to `oci-cred` and
+`secretName` to `oci-privatekey`. Add entries for additional profiles or namespaces,
+using distinct resource names within each namespace.
+
+To use an existing private-key Secret, replace `secretName` with
+`existingSecretName` and omit `privateKey` and its `--set-file` argument. The Secret
+must contain the `privatekey` key in the entry's namespace; see
+[oci-credentials.yaml](examples/oci-credentials.yaml).
+
+Reference the ConfigMap and the created or existing Secret in the database resource:
+
+```yaml
+spec:
+  ociConfig:
+    configMapName: oci-cred
+    secretName: oci-privatekey
+```
+
+Helm manages the created resources on upgrade and removes them when their entry
+is removed or the release is uninstalled. Existing Secrets retain their external
+ownership. Values supplied through `--set-file` are stored in Helm release history.
+The optional `passphrase` field is stored in the ConfigMap, matching the operator's
+credential format.
+
+See the [Autonomous Database setup](../docs/adb/README.md) for other authentication
+modes and the [credential helper](../set_ocicredentials.sh) for local OCI-profile parsing.
 
 ## CRD lifecycle
 
-CRDs are packaged in `crds/`, following [Helm's native CRD installation
-pattern](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/).
-Helm registers them before processing ordinary resources, including when this
-chart is an umbrella dependency. Use `--skip-crds` when CRDs are managed separately.
+The CRDs use [Helm's native `crds/` lifecycle](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/):
+Helm installs missing definitions before ordinary resources and retains them on
+uninstall. Apply reviewed schema updates separately before upgrading the operator,
+preserving stored versions and deployed conversion settings.
 
-A post-install/post-upgrade Job configures the CRDs' certificate annotations and
-conversion webhook Service references for the release namespace. Its ServiceAccount
-can get and patch only the chart's CRDs. The Job also runs with `--skip-crds`, which
-requires all 17 CRDs to exist. Allow Helm hooks to run and wait for the Job to succeed
-before creating database resources. An umbrella chart should install database
-resources in a subsequent release because this Job runs after ordinary resources.
+A post-install/post-upgrade Job patches certificate annotations and conversion
+Service references to the release namespace. Its account can get and patch only
+these CRDs. The Job preserves schemas, stored versions, and CA bundles.
 
-The Job uses `crdConfiguration.image`; choose a kubectl version compatible with
-your Kubernetes server. The Job preserves CRD schemas, stored versions and CA bundles.
-It shares the operator's `nodeSelector`, `tolerations` and explicitly configured
-`affinity` settings.
+`--skip-crds` uses externally installed definitions; the enabled Job still requires
+all bundled definitions. Set `crdConfiguration.enabled=false` when another release or
+an external owner configures both certificate annotations and conversion references.
+Helm still installs missing native CRDs unless `--skip-crds` is also supplied.
 
-Helm skips existing CRDs and retains native CRDs on uninstall and rollback.
-Review and apply CRD schema updates separately before upgrading the operator;
-`helm upgrade` does not update their definitions. Preserve stored API versions
-and conversion settings when updating existing CRDs.
+Allow hooks to finish before creating database resources. In an umbrella setup,
+install database resources in a subsequent release, after certificate issuance,
+CA injection, and webhook startup have been verified.
 
-**Existing releases with templated CRDs require the
-[retention transition](CRD-MIGRATION.md) before upgrading to this layout.**
-This also applies to the Autonomous Database CRDs managed by earlier chart versions.
-
-CRD registration establishes the API; operator admission becomes usable after
-certificate issuance, CA injection, and webhook startup. For a reliable first
-deployment, install the operator and verify its webhooks before installing the
-chart containing database resources. `helm template` tests rendering, not API
-discovery or admission readiness.
+For releases that previously managed CRDs as templates, follow the
+[retention transition](CRD-MIGRATION.md).
 
 ## Uninstall
 
 ```bash
-helm uninstall oraoperator --namespace my-oracle-operator
+helm uninstall oraoperator --namespace oracle-database-operator-system
 ```
 
-### Full cleanup
-
-The chart provides no `values.yaml` flag to delete native CRDs. Their removal is
-an explicit administrator action because they are cluster-wide and may be used
-by other releases.
-
-1. Delete the intended database custom resources while the operator is running,
-   and wait for their cleanup and finalizers to complete.
-2. Uninstall the operator release.
-3. After confirming no other installation uses these CRDs, run from this chart's
-   `helm/` directory:
-
-   ```bash
-   kubectl delete -f crds/
-   ```
-
-**Deleting these CRDs removes all remaining instances across every namespace.**
-It does not guarantee cleanup of external databases or retained storage; review
-the relevant controller's deletion policy and clean up retained assets separately.
-Retaining CRDs also does not protect custom resources when their namespace or
-owning workload release is deleted.
-
-## Configuration
-
-### General Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `imagePullSecrets` | Image pull secrets for private registries | `[]` |
-| `crdConfiguration.image` | kubectl image for CRD reference configuration | `registry.k8s.io/kubectl:v1.35.0` |
-| `crdConfiguration.imagePullPolicy` | CRD configuration image pull policy | `IfNotPresent` |
-
-### Scope Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `scope.mode` | Deployment scope: `cluster` or `namespace` | `cluster` |
-| `scope.watchNamespaces` | Namespaces to watch when `scope.mode=namespace` | `[]` |
-| `rbac.nodeAccess` | Grant permission to list/watch nodes (for NodePort services) | `false` |
-
-### Operator Deployment Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `replicas` | Number of replicas | `3` |
-| `image.repository` | Image repository | `container-registry.oracle.com/database/operator` |
-| `image.tag` | Image tag | `2.2.0` |
-| `image.pullPolicy` | Image pull policy | `IfNotPresent` |
-| `resources.limits.cpu` | CPU limit | `400m` |
-| `resources.limits.memory` | Memory limit | `400Mi` |
-| `resources.requests.cpu` | CPU request | `400m` |
-| `resources.requests.memory` | Memory request | `400Mi` |
-| `leaderElection` | Enable leader election | `true` |
-| `pdb.enabled` | Enable PodDisruptionBudget (when replicas > 1) | `true` |
-| `pdb.minAvailable` | Minimum available pods | `1` |
-| `pdb.maxUnavailable` | Maximum unavailable pods (alternative to minAvailable) | - |
-| `affinity` | Pod affinity rules (default: soft anti-affinity when replicas > 1) | `{}` |
-| `nodeSelector` | Node selector for scheduling | `{}` |
-| `tolerations` | Pod tolerations | `[]` |
-| `terminationGracePeriodSeconds` | Termination grace period | `10` |
-| `extraEnv` | Extra environment variables | `[]` |
-
-### Webhook Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `webhook.failurePolicy` | Webhook failure policy (`Fail` or `Ignore`) | `Fail` |
-| `webhook.port` | Webhook server port | `9443` |
-| `webhook.certificateSecretName` | Secret name for webhook TLS certificate | `webhook-server-cert` |
-| `webhook.timeoutSeconds` | Webhook timeout in seconds | `10` |
-
-### OCI Credentials Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `ociCredentials.existingSecretName` | Existing Secret with OCI credentials | `""` |
-| `ociCredentials.tenancy` | OCI tenancy OCID | `""` |
-| `ociCredentials.user` | OCI user OCID | `""` |
-| `ociCredentials.fingerprint` | OCI API key fingerprint | `""` |
-| `ociCredentials.region` | OCI region | `""` |
-| `ociCredentials.passphrase` | Passphrase for encrypted private key | `""` |
-| `ociCredentials.secretName` | Existing Secret with OCI API private key | `""` |
-
-## Deployment Modes
-
-### Cluster-Scoped (Default)
-
-The operator monitors all namespaces in the cluster.
+For full cleanup, delete database custom resources while the operator is running
+and wait for their finalizers. Then uninstall the operator. Once the retained CRDs
+are unused, remove them explicitly:
 
 ```bash
-helm upgrade --install oraoperator . --namespace my-oracle-operator --create-namespace --set scope.mode=cluster
+kubectl delete -f helm/crds/
 ```
 
-### Namespace-Scoped
+Deleting a CRD deletes all remaining instances across all namespaces. Review each
+controller's deletion policy for external databases and retained storage.
 
-The operator monitors only specified namespaces.
+## Chart maintenance and verification
+
+All chart tooling lives under `helm/`; repository CI can invoke it separately.
+Local checks require Python 3.10+, Helm 3.12+ or Helm 4, and kubectl. YAML decoding
+uses kubectl's local mode.
 
 ```bash
-helm upgrade --install oraoperator . --namespace my-oracle-operator --create-namespace \
-  --set scope.mode=namespace \
-  --set 'scope.watchNamespaces={default,my-app-ns}'
+bash helm/scripts/check.sh
+python3 helm/scripts/sync_manifests.py --check
 ```
 
-## High Availability
-
-When running multiple replicas (`replicas > 1`), the chart automatically:
-
-1. **Enables leader election** - Only one replica processes events at a time
-2. **Applies pod anti-affinity** - Spreads pods across nodes (soft preference)
-3. **Creates PodDisruptionBudget** - Ensures minimum availability during disruptions
-
-To customize HA behavior:
+After regenerating the repository's operator bundle and API schemas, synchronize
+chart artifacts:
 
 ```bash
-helm upgrade --install oraoperator . --namespace my-oracle-operator --create-namespace \
-  --set replicas=3 \
-  --set pdb.minAvailable=2
+python3 helm/scripts/sync_manifests.py
 ```
 
-## OCI Credentials
+The script reads the operator bundle, generated CRD bases, and webhook markers.
+It writes only `helm/crds/` and `helm/files/webhooks.json`. Webhook entries cover
+served API versions and preserve per-entry matching policies. Conflicting markers
+and inconsistent source schemas fail generation.
 
-Autonomous Database operations require OCI credentials.
-
-### Option 1: Reference Existing Secret
+Run integration checks against an explicitly selected disposable Kubernetes 1.36 or 1.37
+cluster with healthy cert-manager and no Oracle CRDs:
 
 ```bash
-helm upgrade --install oraoperator . --namespace my-oracle-operator --create-namespace \
-  --set ociCredentials.existingSecretName=oci-cred \
-  --set ociCredentials.secretName=oci-privatekey
+python3 helm/scripts/test_cluster.py --context kind-helm-test \
+  --second-namespace helm-chart-test-secondary
 ```
 
-### Option 2: Provide Values Directly
+The script installs and upgrades the chart, checks certificates and CRD references,
+and exercises successful and rejected admission using server dry-runs. With
+`--second-namespace`, it also checks independent admission and shared conversion
+across two releases, including removal of the secondary release. Successful
+runs verify CRD retention on uninstall and clean up their resources. Failed runs
+retain resources for inspection; `--keep` also retains a successful installation.
+Use repeated `--values` arguments for image or scheduling customization.
+
+For offline rendering, specify the target Kubernetes version:
 
 ```bash
-# Create the secret with your private key first
-kubectl create secret generic oci-privatekey \
-  --from-file=privatekey=/path/to/oci_api_key.pem \
-  -n my-oracle-operator
-
-# Install with credential values
-helm upgrade --install oraoperator . --namespace my-oracle-operator --create-namespace \
-  --set ociCredentials.tenancy=ocid1.tenancy.oc1..xxx \
-  --set ociCredentials.user=ocid1.user.oc1..xxx \
-  --set ociCredentials.fingerprint=aa:bb:cc:dd:... \
-  --set ociCredentials.region=us-ashburn-1 \
-  --set ociCredentials.secretName=oci-privatekey
-```
-
-## Generating YAML Manifests
-
-```bash
-# Generate with defaults
-helm template oraoperator . --namespace my-oracle-operator --include-crds > oracle-database-operator.yaml
-
-# Namespace-scoped
-helm template oraoperator . \
-  --namespace my-oracle-operator \
-  --include-crds \
-  --set scope.mode=namespace \
-  --set 'scope.watchNamespaces={default,my-app-ns}' \
-  > oracle-database-operator-namespace-scoped.yaml
+helm template oraoperator ./helm --namespace oracle-database-operator-system \
+  --kube-version 1.36.3 --include-crds > /tmp/oracle-database-operator.yaml
 ```

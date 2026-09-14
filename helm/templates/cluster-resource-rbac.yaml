@@ -1,0 +1,33 @@
+{{- if and .Values.rbac.create .Values.rbac.clusterResources }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "oracle-database-operator.clusterName" . }}-cluster-resources
+  labels:
+    {{- include "oracle-database-operator.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: [persistentvolumes]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [""]
+  resources: [namespaces]
+  verbs: [get, list, watch]
+- apiGroups: [storage.k8s.io]
+  resources: [storageclasses]
+  verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "oracle-database-operator.clusterName" . }}-cluster-resources
+  labels:
+    {{- include "oracle-database-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "oracle-database-operator.clusterName" . }}-cluster-resources
+subjects:
+- kind: ServiceAccount
+  name: {{ include "oracle-database-operator.serviceAccountName" . }}
+  namespace: {{ include "oracle-database-operator.namespace" . }}
+{{- end }}

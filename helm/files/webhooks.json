@@ -1,0 +1,479 @@
+{
+  "mutating": [
+    {
+      "name": "mdatabaseobserverv1.kb.io",
+      "path": "/mutate-observability-oracle-com-v1-databaseobserver",
+      "apiGroup": "observability.oracle.com",
+      "apiVersion": "v1",
+      "resources": "databaseobservers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Exact"
+    },
+    {
+      "name": "mdatabaseobserverv1alpha1.kb.io",
+      "path": "/mutate-observability-oracle-com-v1alpha1-databaseobserver",
+      "apiGroup": "observability.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "databaseobservers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Exact"
+    },
+    {
+      "name": "mdatabaseobserverv4.kb.io",
+      "path": "/mutate-observability-oracle-com-v4-databaseobserver",
+      "apiGroup": "observability.oracle.com",
+      "apiVersion": "v4",
+      "resources": "databaseobservers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Exact"
+    },
+    {
+      "name": "mdataguardbroker.kb.io",
+      "path": "/mutate-database-oracle-com-v1alpha1-dataguardbroker",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "dataguardbrokers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "mdbcssystemv4.kb.io",
+      "path": "/mutate-database-oracle-com-v4-dbcssystem",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "dbcssystems",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "mlrest.kb.io",
+      "path": "/mutate-database-oracle-com-v4-lrest",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "lrests",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "mlrpdb.kb.io",
+      "path": "/mutate-database-oracle-com-v4-lrpdb",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "lrpdbs",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "moraclerestart.kb.io",
+      "path": "/mutate-database-oracle-com-v4-oraclerestart",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "oraclerestarts",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "moraclerestdataservice.kb.io",
+      "path": "/mutate-database-oracle-com-v1alpha1-oraclerestdataservice",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "oraclerestdataservices",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "moraclerestdataservicev4.kb.io",
+      "path": "/mutate-database-oracle-com-v4-oraclerestdataservice",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "oraclerestdataservices",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "mprivateai-v4.kb.io",
+      "path": "/mutate-privateai-oracle-com-v4-privateai",
+      "apiGroup": "privateai.oracle.com",
+      "apiVersion": "v4",
+      "resources": "privateais",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "mracdatabase.kb.io",
+      "path": "/mutate-database-oracle-com-v4-racdatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "racdatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "mshardingdatabasev4.kb.io",
+      "path": "/mutate-database-oracle-com-v4-shardingdatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "shardingdatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "msingleinstancedatabasev4.kb.io",
+      "path": "/mutate-database-oracle-com-v4-singleinstancedatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "singleinstancedatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "mtrafficmanager-v4.kb.io",
+      "path": "/mutate-network-oracle-com-v4-trafficmanager",
+      "apiGroup": "network.oracle.com",
+      "apiVersion": "v4",
+      "resources": "trafficmanagers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    }
+  ],
+  "validating": [
+    {
+      "name": "vautonomouscontainerdatabasev1alpha1.kb.io",
+      "path": "/validate-database-oracle-com-v1alpha1-autonomouscontainerdatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "autonomouscontainerdatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vautonomouscontainerdatabasev4.kb.io",
+      "path": "/validate-database-oracle-com-v4-autonomouscontainerdatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "autonomouscontainerdatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vautonomousdatabasebackupv1alpha1.kb.io",
+      "path": "/validate-database-oracle-com-v1alpha1-autonomousdatabasebackup",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "autonomousdatabasebackups",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vautonomousdatabasebackupv4.kb.io",
+      "path": "/validate-database-oracle-com-v4-autonomousdatabasebackup",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "autonomousdatabasebackups",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vautonomousdatabaserestorev1alpha1.kb.io",
+      "path": "/validate-database-oracle-com-v1alpha1-autonomousdatabaserestore",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "autonomousdatabaserestores",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vautonomousdatabaserestorev4.kb.io",
+      "path": "/validate-database-oracle-com-v4-autonomousdatabaserestore",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "autonomousdatabaserestores",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vautonomousdatabasev1alpha1.kb.io",
+      "path": "/validate-database-oracle-com-v1alpha1-autonomousdatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "autonomousdatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vautonomousdatabasev4.kb.io",
+      "path": "/validate-database-oracle-com-v4-autonomousdatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "autonomousdatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vdatabaseobserverv1.kb.io",
+      "path": "/validate-observability-oracle-com-v1-databaseobserver",
+      "apiGroup": "observability.oracle.com",
+      "apiVersion": "v1",
+      "resources": "databaseobservers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Exact"
+    },
+    {
+      "name": "vdatabaseobserverv1alpha1.kb.io",
+      "path": "/validate-observability-oracle-com-v1alpha1-databaseobserver",
+      "apiGroup": "observability.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "databaseobservers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Exact"
+    },
+    {
+      "name": "vdatabaseobserverv4.kb.io",
+      "path": "/validate-observability-oracle-com-v4-databaseobserver",
+      "apiGroup": "observability.oracle.com",
+      "apiVersion": "v4",
+      "resources": "databaseobservers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Exact"
+    },
+    {
+      "name": "vdataguardbroker.kb.io",
+      "path": "/validate-database-oracle-com-v1alpha1-dataguardbroker",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "dataguardbrokers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vdataguardbrokerv4.kb.io",
+      "path": "/validate-database-oracle-com-v4-dataguardbroker",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "dataguardbrokers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vdbcssystemv4.kb.io",
+      "path": "/validate-database-oracle-com-v4-dbcssystem",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "dbcssystems",
+      "operations": [
+        "CREATE",
+        "UPDATE",
+        "DELETE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vlrest.kb.io",
+      "path": "/validate-database-oracle-com-v4-lrest",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "lrests",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vlrpdb.kb.io",
+      "path": "/validate-database-oracle-com-v4-lrpdb",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "lrpdbs",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "voraclerestart.kb.io",
+      "path": "/validate-database-oracle-com-v4-oraclerestart",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "oraclerestarts",
+      "operations": [
+        "CREATE",
+        "UPDATE",
+        "DELETE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "voraclerestdataservice.kb.io",
+      "path": "/validate-database-oracle-com-v1alpha1-oraclerestdataservice",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v1alpha1",
+      "resources": "oraclerestdataservices",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "voraclerestdataservicev4.kb.io",
+      "path": "/validate-database-oracle-com-v4-oraclerestdataservice",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "oraclerestdataservices",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vprivateai-v4.kb.io",
+      "path": "/validate-privateai-oracle-com-v4-privateai",
+      "apiGroup": "privateai.oracle.com",
+      "apiVersion": "v4",
+      "resources": "privateais",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vracdatabase.kb.io",
+      "path": "/validate-database-oracle-com-v4-racdatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "racdatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE",
+        "DELETE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vshardingdatabasev4.kb.io",
+      "path": "/validate-database-oracle-com-v4-shardingdatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "shardingdatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE",
+        "DELETE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vsingleinstancedatabasev4.kb.io",
+      "path": "/validate-database-oracle-com-v4-singleinstancedatabase",
+      "apiGroup": "database.oracle.com",
+      "apiVersion": "v4",
+      "resources": "singleinstancedatabases",
+      "operations": [
+        "CREATE",
+        "UPDATE",
+        "DELETE"
+      ],
+      "matchPolicy": "Equivalent"
+    },
+    {
+      "name": "vtrafficmanager-v4.kb.io",
+      "path": "/validate-network-oracle-com-v4-trafficmanager",
+      "apiGroup": "network.oracle.com",
+      "apiVersion": "v4",
+      "resources": "trafficmanagers",
+      "operations": [
+        "CREATE",
+        "UPDATE"
+      ],
+      "matchPolicy": "Equivalent"
+    }
+  ]
+}

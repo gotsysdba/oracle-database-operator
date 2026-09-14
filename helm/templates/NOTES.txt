@@ -2,13 +2,13 @@ Oracle Database Operator has been installed.
 
 Namespace: {{ include "oracle-database-operator.namespace" . }}
 
-To verify the installation:
+Check deployment and certificate status:
 
-  kubectl -n {{ include "oracle-database-operator.namespace" . }} get all 
+  kubectl -n {{ include "oracle-database-operator.namespace" . }} get deployments,pods,certificates
 
 To check the operator logs:
 
-  kubectl -n {{ include "oracle-database-operator.namespace" . }} logs -l control-plane=controller-manager -f
+  kubectl -n {{ include "oracle-database-operator.namespace" . }} logs -l app.kubernetes.io/instance={{ .Release.Name }},control-plane=controller-manager -f
 
 For more information, visit:
   https://github.com/oracle/oracle-database-operator

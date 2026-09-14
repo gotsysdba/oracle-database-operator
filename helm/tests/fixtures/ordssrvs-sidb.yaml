@@ -1,0 +1,45 @@
+# Live OrdsSrvs fixture for the SIDB in sidb-free.yaml.
+# Requires sidb-admin/oracle_pwd and ords-auth/{dbAuth,instanceAuth} Secrets.
+apiVersion: database.oracle.com/v4
+kind: OrdsSrvs
+metadata:
+  name: helm-ords
+  namespace: helm-sidb-data
+spec:
+  image: container-registry.oracle.com/database/ords:latest
+  imagePullPolicy: IfNotPresent
+  workloadType: Deployment
+  replicas: 1
+  forceRestart: true
+  jdkJavaOptions: "-Xms128m -Xmx768m"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1536Mi
+  globalSettings:
+    standalone.http.port: 8080
+    standalone.https.port: 0
+    database.api.enabled: true
+    instance.api.enabled: true
+    instanceAPIAdminUser: helm_admin
+    instanceAPIAdminSecret:
+      secretName: ords-auth
+      passwordKey: instanceAuth
+  poolSettings:
+    - poolName: default
+      autoUpgradeORDS: true
+      autoUpgradeAPEX: false
+      restEnabledSql.active: true
+      db.connectionType: customurl
+      db.customURL: jdbc:oracle:thin:@//helm-free.helm-sidb-data.svc:1521/FREEPDB1
+      db.username: ORDS_PUBLIC_USER
+      db.secret:
+        secretName: ords-auth
+        passwordKey: dbAuth
+      db.adminUser: SYS
+      db.adminUser.secret:
+        secretName: sidb-admin
+        passwordKey: oracle_pwd

@@ -1,0 +1,10 @@
+# Provision the referenced accounts and all chart permissions before installation.
+rbac:
+  create: false
+serviceAccount:
+  create: false
+  name: oracle-manager
+crdConfiguration:
+  serviceAccount:
+    create: false
+    name: oracle-crd-configuration

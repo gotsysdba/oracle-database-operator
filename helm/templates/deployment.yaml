@@ -1,4 +1,3 @@
-{{- include "oracle-database-operator.validateScopeConfig" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,11 +14,13 @@ spec:
     metadata:
       labels:
         {{- include "oracle-database-operator.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       serviceAccountName: {{ include "oracle-database-operator.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -48,6 +49,10 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: manager
         image: {{ include "oracle-database-operator.image" . }}
@@ -56,9 +61,7 @@ spec:
         - /manager
         args:
         - --metrics-addr=:8443
-        {{- if .Values.leaderElection }}
-        - --enable-leader-election
-        {{- end }}
+        - --enable-leader-election={{ .Values.leaderElection }}
         env:
         - name: WATCH_NAMESPACE
           {{- if eq .Values.scope.mode "namespace" }}
@@ -70,7 +73,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         ports:
-        - containerPort: {{ .Values.webhook.port | default 9443 }}
+        - containerPort: 9443
           name: webhook-server
           protocol: TCP
         - containerPort: 8443
@@ -79,12 +82,7 @@ spec:
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          readOnlyRootFilesystem: false
-          runAsUser: 1002
+          {{- toYaml .Values.securityContext | nindent 10 }}
         volumeMounts:
         - mountPath: /metrics-certs
           name: metrics-certs
@@ -92,7 +90,7 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 10 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       volumes:
       - name: metrics-certs
         secret:
@@ -101,4 +99,4 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: {{ .Values.webhook.certificateSecretName | default "webhook-server-cert" }}
+          secretName: {{ .Values.webhook.certificateSecretName }}

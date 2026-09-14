@@ -1,132 +1,95 @@
-# Default values for oracle-database-operator
+# Empty uses the Helm release namespace; an override must already exist.
+namespaceOverride: ""
+
 replicas: 3
+leaderElection: true
 
-# Configure the installation namespace with Helm's --namespace option.
-
-# Patches native CRD webhook references after installation and upgrade.
-crdConfiguration:
-  image: registry.k8s.io/kubectl:v1.35.0
-  imagePullPolicy: IfNotPresent
-
-# Image pull secrets for private registries
-imagePullSecrets: []
-# Example:
-# imagePullSecrets:
-#   - name: my-registry-secret
 image:
-  repository: container-registry.oracle.com/database/operator
-  # Specify a version tag for reproducible deployments
-  tag: "2.2.0"
+  registry: container-registry.oracle.com
+  repository: database/operator
+  # An empty tag uses Chart.appVersion; a digest takes precedence over the tag.
+  tag: ""
+  digest: ""
   pullPolicy: IfNotPresent
+imagePullSecrets: []
 
-# Deployment scope configuration
+# One OCI profile per entry, in the database resource's existing namespace.
+# Supply privateKey with --set-file, or select existingSecretName.
+ociCredentials: []
+
 scope:
-  # "cluster" = watch all namespaces (default), creates ClusterRoleBinding
-  # "namespace" = watch specific namespaces only, creates RoleBindings in those namespaces
   mode: cluster
-
-  # For namespace-scoped mode: list of namespaces to watch
-  # RoleBindings will be created in each of these namespaces
+  # Required in namespace mode. These namespaces must already exist.
   watchNamespaces: []
-  # Example: ["default", "my-app-namespace"]
 
-# RBAC configuration
 rbac:
-  # Grant operator permission to list/watch nodes
-  # Required if database CRs will use NodePort service type
+  create: true
+  # PV management and Namespace/StorageClass reads in either scope mode.
+  clusterResources: true
+  # Node list/watch access for NodePort services.
   nodeAccess: false
 
-# Resource limits and requests
+serviceAccount:
+  create: true
+  # Defaults to oracle-database-operator; required when create is false.
+  name: ""
+  annotations: {}
+
+# Patches native CRD certificate and conversion references after install/upgrade.
+crdConfiguration:
+  # Enable in one release per cluster to manage shared CRD references.
+  enabled: true
+  image: registry.k8s.io/kubectl:v1.36.3
+  imagePullPolicy: IfNotPresent
+  serviceAccount:
+    create: true
+    name: ""
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
 resources:
-  limits:
-    cpu: 400m
-    memory: 400Mi
   requests:
     cpu: 400m
     memory: 400Mi
+  limits:
+    cpu: 400m
+    memory: 400Mi
 
-# Enable leader election for controller manager
-leaderElection: true
-
-# Pod Disruption Budget (only applies when replicas > 1)
+# For multiple replicas, set at most one budget. Both null defaults to minAvailable: 1.
 pdb:
   enabled: true
-  minAvailable: 1
-  # maxUnavailable: 1  # Alternative to minAvailable
+  minAvailable: null
+  maxUnavailable: null
 
-# Pod affinity/anti-affinity rules
-# If not set and replicas > 1, a default soft anti-affinity is applied
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: false
+  runAsUser: 1002
+
+# Empty affinity applies soft pod anti-affinity when replicas > 1.
 affinity: {}
-# Example custom affinity:
-# affinity:
-#   podAntiAffinity:
-#     requiredDuringSchedulingIgnoredDuringExecution:
-#     - labelSelector:
-#         matchLabels:
-#           app.kubernetes.io/name: oracle-database-operator
-#       topologyKey: kubernetes.io/hostname
-
-# Node selector for pod scheduling
 nodeSelector: {}
-# Example:
-# nodeSelector:
-#   kubernetes.io/os: linux
-
-# Tolerations for pod scheduling
 tolerations: []
-# Example:
-# tolerations:
-# - key: "dedicated"
-#   operator: "Equal"
-#   value: "database-operator"
-#   effect: "NoSchedule"
-
-# Termination grace period in seconds
+topologySpreadConstraints: []
 terminationGracePeriodSeconds: 10
 
-# Extra environment variables for the controller manager container
+# WATCH_NAMESPACE is managed by scope; other environment variables may be added here.
 extraEnv: []
-# Example:
-# extraEnv:
-# - name: LOG_LEVEL
-#   value: "debug"
-# - name: MY_SECRET
-#   valueFrom:
-#     secretKeyRef:
-#       name: my-secret
-#       key: password
 
-# Service Account configuration
-serviceAccount:
-  # The name of the service account to use
-  # If empty, uses the existing "default" service account
-  # If specifying a custom name, ensure the service account exists before installing
-  name: ""
-
-# Webhook configuration
+# The operator listens on port 9443.
 webhook:
-  # Failure policy for webhooks (Fail or Ignore)
   failurePolicy: Fail
-  # Webhook server port
-  port: 9443
-  # Secret name containing the webhook TLS certificate
   certificateSecretName: webhook-server-cert
-  # Webhook timeout in seconds (optional)
   timeoutSeconds: 10
-
-# OCI Credentials for Autonomous Database
-# Required for ADB provisioning/binding. See: set_ocicredentials.sh
-ociCredentials:
-  # Option 1: Reference an existing Secret containing OCI credentials
-  existingSecretName: ""
-
-  # Option 2: Provide values to create a Secret (used if existingSecretName is empty)
-  tenancy: ""
-  user: ""
-  fingerprint: ""
-  region: ""
-  passphrase: "" # optional, for encrypted private keys
-
-  # Reference an existing Secret containing the OCI API private key
-  # User must create this separately (e.g., using set_ocicredentials.sh or kubectl)
-  secretName: ""

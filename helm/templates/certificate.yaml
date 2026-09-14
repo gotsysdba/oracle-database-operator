@@ -6,12 +6,15 @@ metadata:
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 spec:
+  subject:
+    organizations:
+    - {{ include "oracle-database-operator.name" . }}
   dnsNames:
   - {{ include "oracle-database-operator.webhookServiceName" . }}.{{ include "oracle-database-operator.namespace" . }}.svc
   - {{ include "oracle-database-operator.webhookServiceName" . }}.{{ include "oracle-database-operator.namespace" . }}.svc.cluster.local
   issuerRef:
     kind: Issuer
     name: {{ include "oracle-database-operator.issuerName" . }}
-  secretName: {{ .Values.webhook.certificateSecretName | default "webhook-server-cert" }}
+  secretName: {{ .Values.webhook.certificateSecretName }}
   privateKey:
     rotationPolicy: Always

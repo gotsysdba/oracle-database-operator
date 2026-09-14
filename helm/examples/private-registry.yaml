@@ -1,0 +1,4 @@
+image:
+  registry: myregistry.example.com
+  repository: database/operator
+  tag: "2.2.0"

@@ -1,0 +1,622 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "replicas",
+    "leaderElection",
+    "image",
+    "imagePullSecrets",
+    "scope",
+    "rbac",
+    "serviceAccount",
+    "crdConfiguration",
+    "resources",
+    "pdb",
+    "podAnnotations",
+    "podSecurityContext",
+    "securityContext",
+    "affinity",
+    "nodeSelector",
+    "tolerations",
+    "topologySpreadConstraints",
+    "terminationGracePeriodSeconds",
+    "extraEnv",
+    "webhook",
+    "ociCredentials"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "replicas": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "leaderElection": {
+      "type": "boolean"
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry",
+        "repository",
+        "tag",
+        "digest",
+        "pullPolicy"
+      ],
+      "properties": {
+        "registry": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\s/@]+$"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\s/@:]+(/[^\\s/@:]+)*$"
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^$|^[\\w][\\w.-]{0,127}$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^$|^sha256:[a-f0-9]{64}$"
+        },
+        "pullPolicy": {
+          "$ref": "#/definitions/pullPolicy"
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/definitions/resourceName"
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "watchNamespaces"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "cluster",
+            "namespace"
+          ]
+        },
+        "watchNamespaces": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/namespaceName"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "namespace"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "watchNamespaces": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "cluster"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "watchNamespaces": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "rbac": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "create",
+        "clusterResources",
+        "nodeAccess"
+      ],
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "clusterResources": {
+          "type": "boolean"
+        },
+        "nodeAccess": {
+          "type": "boolean"
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "create",
+        "name",
+        "annotations"
+      ],
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "$ref": "#/definitions/resourceName"
+            }
+          ]
+        },
+        "annotations": {
+          "$ref": "#/definitions/stringMap"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "create": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "name": {
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "crdConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "image",
+        "imagePullPolicy",
+        "serviceAccount",
+        "resources"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S+$"
+        },
+        "imagePullPolicy": {
+          "$ref": "#/definitions/pullPolicy"
+        },
+        "serviceAccount": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "create",
+            "name"
+          ],
+          "properties": {
+            "create": {
+              "type": "boolean"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "const": ""
+                },
+                {
+                  "$ref": "#/definitions/resourceName"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "create": {
+                    "const": false
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "name": {
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "resources": {
+          "$ref": "#/definitions/resources"
+        }
+      }
+    },
+    "resources": {
+      "$ref": "#/definitions/resources"
+    },
+    "pdb": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minAvailable": {
+          "$ref": "#/definitions/budget"
+        },
+        "maxUnavailable": {
+          "$ref": "#/definitions/budget"
+        }
+      },
+      "not": {
+        "required": [
+          "minAvailable",
+          "maxUnavailable"
+        ],
+        "properties": {
+          "minAvailable": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "maxUnavailable": {
+            "not": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    },
+    "podAnnotations": {
+      "$ref": "#/definitions/stringMap"
+    },
+    "podSecurityContext": {
+      "type": "object"
+    },
+    "securityContext": {
+      "type": "object"
+    },
+    "affinity": {
+      "type": "object"
+    },
+    "nodeSelector": {
+      "$ref": "#/definitions/stringMap"
+    },
+    "tolerations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "topologySpreadConstraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "maxSkew",
+          "topologyKey",
+          "whenUnsatisfiable"
+        ],
+        "properties": {
+          "maxSkew": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "topologyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "whenUnsatisfiable": {
+            "enum": [
+              "DoNotSchedule",
+              "ScheduleAnyway"
+            ]
+          },
+          "labelSelector": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "extraEnv": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "not": {
+              "const": "WATCH_NAMESPACE"
+            }
+          },
+          "value": {
+            "type": "string"
+          },
+          "valueFrom": {
+            "type": "object"
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "value"
+            ],
+            "not": {
+              "required": [
+                "valueFrom"
+              ]
+            }
+          },
+          {
+            "required": [
+              "valueFrom"
+            ],
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "webhook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failurePolicy",
+        "certificateSecretName",
+        "timeoutSeconds"
+      ],
+      "properties": {
+        "failurePolicy": {
+          "enum": [
+            "Fail",
+            "Ignore"
+          ]
+        },
+        "certificateSecretName": {
+          "$ref": "#/definitions/resourceName"
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        }
+      }
+    },
+    "global": {
+      "type": "object"
+    },
+    "ociCredentials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "namespace",
+          "tenancy",
+          "user",
+          "fingerprint",
+          "region"
+        ],
+        "properties": {
+          "namespace": {
+            "$ref": "#/definitions/namespaceName"
+          },
+          "configMapName": {
+            "$ref": "#/definitions/resourceName"
+          },
+          "secretName": {
+            "$ref": "#/definitions/resourceName"
+          },
+          "existingSecretName": {
+            "$ref": "#/definitions/resourceName"
+          },
+          "tenancy": {
+            "$ref": "#/definitions/nonBlankString"
+          },
+          "user": {
+            "$ref": "#/definitions/nonBlankString"
+          },
+          "fingerprint": {
+            "$ref": "#/definitions/nonBlankString"
+          },
+          "region": {
+            "$ref": "#/definitions/nonBlankString"
+          },
+          "passphrase": {
+            "type": "string"
+          },
+          "privateKey": {
+            "$ref": "#/definitions/nonBlankString"
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "privateKey"
+            ],
+            "not": {
+              "required": [
+                "existingSecretName"
+              ]
+            }
+          },
+          {
+            "required": [
+              "existingSecretName"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "privateKey"
+                  ]
+                },
+                {
+                  "required": [
+                    "secretName"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "namespaceOverride": {
+      "type": "string",
+      "maxLength": 63,
+      "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "replicas": {
+            "minimum": 2
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "leaderElection": {
+            "const": true
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "pullPolicy": {
+      "enum": [
+        "Always",
+        "IfNotPresent",
+        "Never"
+      ]
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "budget": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "string",
+          "pattern": "^(100|[0-9]{1,2})%$"
+        }
+      ]
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requests": {
+          "$ref": "#/definitions/quantities"
+        },
+        "limits": {
+          "$ref": "#/definitions/quantities"
+        }
+      }
+    },
+    "quantities": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number",
+            "minimum": 0
+          },
+          {
+            "type": "string",
+            "minLength": 1
+          }
+        ]
+      }
+    },
+    "resourceName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 253,
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+    },
+    "namespaceName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63,
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    },
+    "nonBlankString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    }
+  }
+}

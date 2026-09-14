@@ -1,0 +1,32 @@
+# Live SIDB fixture: create helm-sidb-data and its sidb-admin Secret first.
+# Apply after the chart is ready and watches helm-sidb-data.
+apiVersion: database.oracle.com/v4
+kind: SingleInstanceDatabase
+metadata:
+  name: helm-free
+  namespace: helm-sidb-data
+spec:
+  edition: free
+  security:
+    secrets:
+      admin:
+        secretName: sidb-admin
+        secretKey: oracle_pwd
+        keepSecret: true
+  image:
+    pullFrom: container-registry.oracle.com/database/free:latest
+    imagePullPolicy: IfNotPresent
+    prebuiltDB: true
+  persistence:
+    oradata:
+      size: 50Gi
+      storageClass: standard
+      accessMode: ReadWriteOnce
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  replicas: 1

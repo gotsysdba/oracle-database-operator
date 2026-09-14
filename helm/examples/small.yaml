@@ -1,0 +1,9 @@
+# One manager for development or small installations.
+replicas: 1
+resources:
+  requests:
+    cpu: 100m
+    memory: 400Mi
+  limits:
+    cpu: 400m
+    memory: 400Mi

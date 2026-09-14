@@ -3,11 +3,11 @@ kind: MutatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: {{ include "oracle-database-operator.certManagerInjectAnnotation" . }}
-  name: {{ include "oracle-database-operator.name" . }}-mutating-webhook-configuration
+  name: {{ include "oracle-database-operator.clusterName" . }}-mutating-webhook-configuration
   labels:
     {{- include "oracle-database-operator.labels" . | nindent 4 }}
 webhooks:
-{{- $webhooks := include "oracle-database-operator.mutatingWebhooks" . | fromYamlArray }}
+{{- $webhooks := (fromJson (.Files.Get "files/webhooks.json")).mutating }}
 {{- range $webhook := $webhooks }}
 - admissionReviewVersions:
   - v1
@@ -19,22 +19,17 @@ webhooks:
       path: {{ $webhook.path }}
   failurePolicy: {{ $.Values.webhook.failurePolicy }}
   name: {{ $webhook.name }}
-  {{- if $.Values.webhook.timeoutSeconds }}
+  matchPolicy: {{ $webhook.matchPolicy }}
   timeoutSeconds: {{ $.Values.webhook.timeoutSeconds }}
-  {{- end }}
+  {{- include "oracle-database-operator.webhookNamespaceSelector" $ | nindent 2 }}
   rules:
   - apiGroups:
     - {{ $webhook.apiGroup }}
     apiVersions:
     - {{ $webhook.apiVersion }}
     operations:
-    {{- if $webhook.operations }}
     {{- range $webhook.operations }}
     - {{ . }}
-    {{- end }}
-    {{- else }}
-    - CREATE
-    - UPDATE
     {{- end }}
     resources:
     - {{ $webhook.resources }}
